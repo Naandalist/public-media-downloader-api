@@ -199,7 +199,7 @@ Errors use JSON before response streaming starts:
 {
   "error": {
     "code": "UNSUPPORTED_URL",
-    "message": "The URL is not supported.",
+    "message": "The media URL is not supported.",
     "requestId": "..."
   }
 }
@@ -211,13 +211,20 @@ Initial error codes:
 - `UNAUTHORIZED` — `401`
 - `UNSUPPORTED_URL` — `400`
 - `MEDIA_UNAVAILABLE` — `404`
+- `NOT_FOUND` — `404`
 - `QUALITY_UNAVAILABLE` — `422`
 - `LIMIT_EXCEEDED` — `413`
 - `RATE_LIMITED` — `429`
 - `DOWNLOAD_FAILED` — `502`
 - `PROCESSING_FAILED` — `500`
 - `SERVICE_BUSY` — `503`
+- `SERVICE_NOT_READY` — `503`
 - `INTERNAL_ERROR` — `500`
+
+These codes, statuses, and generic messages form the stable client contract. Domain errors derive
+their public status and message from one internal catalog; callers cannot supply process output,
+paths, command lines, source URLs, or other details. Every JSON error includes the matching request
+ID. New codes may be added, but existing meanings must not be changed without a versioned API.
 
 Once streaming begins, the server may only terminate the connection on failure. Clients must treat incomplete responses as failed downloads.
 

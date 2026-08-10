@@ -299,11 +299,11 @@ Verification gate:
 
 ## Step 14 — Normalize errors
 
-- [ ] Define domain error classes/codes.
-- [ ] Map validation, authentication, extraction, limits, capacity, processing, and unexpected failures.
-- [ ] Include request ID in every JSON error.
-- [ ] Use stable codes suitable for Android clients.
-- [ ] Keep human-readable messages generic and safe.
+- [x] Define domain error classes/codes.
+- [x] Map validation, authentication, extraction, limits, capacity, processing, and unexpected failures.
+- [x] Include request ID in every JSON error.
+- [x] Use stable codes suitable for Android clients.
+- [x] Keep human-readable messages generic and safe.
 
 Error shape:
 
@@ -319,9 +319,9 @@ Error shape:
 
 Verification gate:
 
-- [ ] Every known failure maps to the status/code documented in `PLAN.md`.
-- [ ] Unknown failures return `500 INTERNAL_ERROR`.
-- [ ] No response exposes command lines, stack traces, local paths, or signed URLs.
+- [x] Every known failure maps to the status/code documented in `PLAN.md`.
+- [x] Unknown failures return `500 INTERNAL_ERROR`.
+- [x] No response exposes command lines, stack traces, local paths, or signed URLs.
 
 ## Step 15 — Add rate limiting
 

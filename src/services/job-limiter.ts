@@ -8,11 +8,9 @@ const assertPositiveInteger = (name: string, value: number) => {
   }
 };
 
-const outputLimitError = () =>
-  new ApplicationError("LIMIT_EXCEEDED", 413, "The media exceeds the maximum output size.");
+const outputLimitError = () => new ApplicationError("LIMIT_EXCEEDED");
 
-const timeoutError = () =>
-  new ApplicationError("DOWNLOAD_FAILED", 502, "The media job exceeded its allowed time.");
+const timeoutError = () => new ApplicationError("DOWNLOAD_FAILED");
 
 export class OutputByteLimiter {
   private observedBytes = 0;
@@ -121,7 +119,7 @@ export class JobLimiter {
 
   acquire(requestSignal?: AbortSignal): JobLease {
     if (!this.acceptingJobs || this.activeJobs >= this.maximumConcurrentJobs) {
-      throw new ApplicationError("SERVICE_BUSY", 503, "The media service is busy.", {
+      throw new ApplicationError("SERVICE_BUSY", {
         retryAfterSeconds: this.retryAfterSeconds,
       });
     }

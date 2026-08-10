@@ -86,12 +86,7 @@ const selectVideo = (
     .toSorted((left, right) => videoBitrate(right) - videoBitrate(left))[0];
 };
 
-const unavailable = () =>
-  new ApplicationError(
-    "QUALITY_UNAVAILABLE",
-    422,
-    "No suitable media stream is available at or below the requested quality.",
-  );
+const unavailable = () => new ApplicationError("QUALITY_UNAVAILABLE");
 
 const assertSafeFormat = (format: ExtractedFormat | undefined): ExtractedFormat => {
   if (format === undefined || !safeFormatIdPattern.test(format.formatId)) {

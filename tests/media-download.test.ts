@@ -64,6 +64,7 @@ const source = (formats: readonly ExtractedFormat[]): InspectedMediaSource => ({
 class StubProcessExecutor implements ProcessExecutor {
   readonly calls: ProcessRunOptions[] = [];
   failDownload = false;
+  failProcessing = false;
   hangDownload = false;
   outputBytes = new TextEncoder().encode("playable-fixture");
   probeFormat = "webm";
@@ -94,6 +95,10 @@ class StubProcessExecutor implements ProcessExecutor {
     }
 
     if (options.executable === "/tools/ffmpeg") {
+      if (this.failProcessing) {
+        throw new ProcessRunnerError("EXIT_NON_ZERO", 1);
+      }
+
       const arguments_ = options.arguments ?? [];
       const input = arguments_[arguments_.indexOf("-i") + 1];
       const output = arguments_.at(-1);
@@ -263,6 +268,25 @@ describe("MediaDownloadService", () => {
     fixture.lease.release();
   });
 
+  test("maps FFmpeg failures to processing errors and cleans partial work", async () => {
+    const fixture = await setup([
+      format({
+        audioCodec: "aac",
+        formatId: "combined",
+        hasAudio: true,
+        hasVideo: true,
+        height: 720,
+      }),
+    ]);
+    fixture.executor.failProcessing = true;
+
+    await expect(
+      fixture.service.prepare(request({ mode: "video_only" }), fixture.lease.context),
+    ).rejects.toMatchObject({ code: "PROCESSING_FAILED", status: 500 });
+    expect(await readdir(fixture.root)).toEqual([]);
+    fixture.lease.release();
+  });
+
   test("propagates client cancellation to active work and removes partial files", async () => {
     const root = await mkdtemp(join(tmpdir(), "downloader-abort-"));
     temporaryRoots.push(root);
@@ -301,7 +325,7 @@ describe("MediaDownloadService", () => {
 
     await expect(
       fixture.service.prepare(request({ mode: "video_only" }), fixture.lease.context),
-    ).rejects.toMatchObject({ code: "DOWNLOAD_FAILED" });
+    ).rejects.toMatchObject({ code: "PROCESSING_FAILED", status: 500 });
     expect(await readdir(fixture.root)).toEqual([]);
     fixture.lease.release();
   });
@@ -425,7 +449,7 @@ describe("MediaDownloadService", () => {
 
     await expect(
       fixture.service.prepare(request({ stripMetadata: true }), fixture.lease.context),
-    ).rejects.toMatchObject({ code: "DOWNLOAD_FAILED" });
+    ).rejects.toMatchObject({ code: "PROCESSING_FAILED", status: 500 });
     expect(await readdir(fixture.root)).toEqual([]);
     fixture.lease.release();
   });
@@ -448,7 +472,7 @@ describe("MediaDownloadService", () => {
 
     await expect(
       fixture.service.prepare(request({ stripMetadata: true }), fixture.lease.context),
-    ).rejects.toMatchObject({ code: "DOWNLOAD_FAILED" });
+    ).rejects.toMatchObject({ code: "PROCESSING_FAILED", status: 500 });
     expect(await readdir(fixture.root)).toEqual([]);
     fixture.lease.release();
   });
@@ -467,7 +491,7 @@ describe("MediaDownloadService", () => {
         request({ mode: "video_only", stripMetadata: true }),
         fixture.lease.context,
       ),
-    ).rejects.toMatchObject({ code: "DOWNLOAD_FAILED" });
+    ).rejects.toMatchObject({ code: "PROCESSING_FAILED", status: 500 });
     expect(await readdir(fixture.root)).toEqual([]);
     fixture.lease.release();
   });

@@ -100,14 +100,10 @@ export class YtDlpAdapter implements MediaExtractor {
       stdout = result.stdout;
     } catch (error) {
       if (error instanceof ProcessRunnerError && error.code === "EXIT_NON_ZERO") {
-        throw new ApplicationError(
-          "MEDIA_UNAVAILABLE",
-          404,
-          "The media is private, unavailable, or no longer exists.",
-        );
+        throw new ApplicationError("MEDIA_UNAVAILABLE");
       }
 
-      throw new ApplicationError("DOWNLOAD_FAILED", 502, "Media inspection failed.");
+      throw new ApplicationError("DOWNLOAD_FAILED");
     }
 
     let rawResponse: unknown;
@@ -115,11 +111,7 @@ export class YtDlpAdapter implements MediaExtractor {
     try {
       rawResponse = JSON.parse(stdout);
     } catch {
-      throw new ApplicationError(
-        "DOWNLOAD_FAILED",
-        502,
-        "The media extractor returned invalid data.",
-      );
+      throw new ApplicationError("DOWNLOAD_FAILED");
     }
 
     const playlistMarker = playlistMarkerSchema.safeParse(rawResponse);
@@ -128,17 +120,13 @@ export class YtDlpAdapter implements MediaExtractor {
       playlistMarker.success &&
       (playlistMarker.data._type === "playlist" || playlistMarker.data.entries !== undefined)
     ) {
-      throw new ApplicationError("INVALID_REQUEST", 400, "Playlist downloads are not supported.");
+      throw new ApplicationError("INVALID_REQUEST");
     }
 
     const parsed = extractorResponseSchema.safeParse(rawResponse);
 
     if (!parsed.success) {
-      throw new ApplicationError(
-        "DOWNLOAD_FAILED",
-        502,
-        "The media extractor returned invalid data.",
-      );
+      throw new ApplicationError("DOWNLOAD_FAILED");
     }
 
     const formats = parsed.data.formats.map((format) => ({

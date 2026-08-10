@@ -1,5 +1,6 @@
 import { createMiddleware } from "hono/factory";
 
+import { ApplicationError } from "../domain/errors";
 import type { ReadinessChecker } from "../services/readiness";
 import type { AppEnvironment } from "../types/http";
 
@@ -9,17 +10,7 @@ export const createMediaReadinessMiddleware = (readiness: ReadinessChecker) =>
 
     if (result.status !== "ready") {
       context.header("Retry-After", "30");
-
-      return context.json(
-        {
-          error: {
-            code: "SERVICE_NOT_READY",
-            message: "Media processing dependencies are unavailable.",
-            requestId: context.get("requestId"),
-          },
-        },
-        503,
-      );
+      throw new ApplicationError("SERVICE_NOT_READY");
     }
 
     await next();

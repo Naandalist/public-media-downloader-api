@@ -28,11 +28,7 @@ export class MediaInfoService implements MediaInfoInspector {
     const hasAudio = extracted.formats.some((format) => format.hasAudio);
 
     if (!hasVideo && !hasAudio) {
-      throw new ApplicationError(
-        "DOWNLOAD_FAILED",
-        502,
-        "The media extractor returned no playable streams.",
-      );
+      throw new ApplicationError("DOWNLOAD_FAILED");
     }
 
     const modes: DownloadMode[] = [];
@@ -79,10 +75,10 @@ export class MediaInfoService implements MediaInfoInspector {
     } catch (error) {
       if (error instanceof UrlValidationError) {
         if (error.code === "UNSUPPORTED_URL") {
-          throw new ApplicationError("UNSUPPORTED_URL", 400, error.message);
+          throw new ApplicationError("UNSUPPORTED_URL");
         }
 
-        throw new ApplicationError("INVALID_REQUEST", 400, error.message);
+        throw new ApplicationError("INVALID_REQUEST");
       }
 
       throw error;
@@ -94,11 +90,7 @@ export class MediaInfoService implements MediaInfoInspector {
       extracted.durationSeconds !== null &&
       extracted.durationSeconds > this.maximumDurationSeconds
     ) {
-      throw new ApplicationError(
-        "LIMIT_EXCEEDED",
-        413,
-        `Media duration exceeds the ${this.maximumDurationSeconds}-second limit.`,
-      );
+      throw new ApplicationError("LIMIT_EXCEEDED");
     }
 
     return Object.freeze({

@@ -1,5 +1,6 @@
 import { createMiddleware } from "hono/factory";
 
+import { ApplicationError } from "../domain/errors";
 import type { ApiKeyAuthenticator } from "../services/api-key-authenticator";
 import type { AppEnvironment } from "../types/http";
 
@@ -10,17 +11,7 @@ export const createApiKeyMiddleware = (authenticator: ApiKeyAuthenticator) =>
 
     if (apiKeyId === null) {
       context.header("WWW-Authenticate", 'ApiKey realm="api"');
-
-      return context.json(
-        {
-          error: {
-            code: "UNAUTHORIZED",
-            message: "A valid API key is required.",
-            requestId: context.get("requestId"),
-          },
-        },
-        401,
-      );
+      throw new ApplicationError("UNAUTHORIZED");
     }
 
     context.set("apiKeyId", apiKeyId);

@@ -35,7 +35,7 @@ export const createApiRoutes = (
     try {
       body = await context.req.json();
     } catch {
-      throw new ApplicationError("INVALID_REQUEST", 400, "A valid JSON body is required.");
+      throw new ApplicationError("INVALID_REQUEST");
     }
 
     const parsed = z
@@ -46,11 +46,7 @@ export const createApiRoutes = (
       .safeParse(body);
 
     if (!parsed.success) {
-      throw new ApplicationError(
-        "INVALID_REQUEST",
-        400,
-        "The request must contain only a valid URL string.",
-      );
+      throw new ApplicationError("INVALID_REQUEST");
     }
 
     return context.json(
@@ -67,7 +63,7 @@ export const createApiRoutes = (
     try {
       body = await context.req.json();
     } catch {
-      throw new ApplicationError("INVALID_REQUEST", 400, "A valid JSON body is required.");
+      throw new ApplicationError("INVALID_REQUEST");
     }
 
     const parsed = z
@@ -81,11 +77,7 @@ export const createApiRoutes = (
       .safeParse(body);
 
     if (!parsed.success) {
-      throw new ApplicationError(
-        "INVALID_REQUEST",
-        400,
-        "The download request contains invalid fields.",
-      );
+      throw new ApplicationError("INVALID_REQUEST");
     }
 
     const lease = jobLimiter.acquire(context.req.raw.signal);

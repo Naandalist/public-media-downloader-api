@@ -2,8 +2,9 @@
 
 Planned Bun + Hono backend and web interface for downloading publicly accessible media from YouTube, X/Twitter, Facebook, TikTok, and Instagram.
 
-> Status: workflow Steps 1–13 are complete. Authenticated inspection, direct media downloads, and
-> optional validated metadata sanitization are implemented. See [PLAN.md](./PLAN.md) for the
+> Status: workflow Steps 1–14 are complete. Authenticated inspection, direct media downloads,
+> optional validated metadata sanitization, and stable safe API errors are implemented. See
+> [PLAN.md](./PLAN.md) for the
 > implementation contract and [WORKFLOW.md](./WORKFLOW.md) for progress.
 
 ## Planned capabilities

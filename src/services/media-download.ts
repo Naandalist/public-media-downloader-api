@@ -3,7 +3,7 @@ import { extname } from "node:path";
 
 import { z } from "zod";
 
-import { ApplicationError } from "../domain/errors";
+import { ApplicationError, type ApplicationErrorCode } from "../domain/errors";
 import type {
   MediaDownloader,
   MediaDownloadRequest,
@@ -84,13 +84,18 @@ const removableMetadataKeys = new Set([
   "title",
 ]);
 
-const downloadFailed = () =>
-  new ApplicationError("DOWNLOAD_FAILED", 502, "The media download failed.");
+const downloadFailed = () => new ApplicationError("DOWNLOAD_FAILED");
 
-const processingFailed = () =>
-  new ApplicationError("DOWNLOAD_FAILED", 502, "The downloaded media could not be validated.");
+const processingFailed = () => new ApplicationError("PROCESSING_FAILED");
 
-const processFailure = (error: unknown, signal: AbortSignal): ApplicationError => {
+const processFailure = (
+  error: unknown,
+  signal: AbortSignal,
+  fallbackCode: Extract<
+    ApplicationErrorCode,
+    "DOWNLOAD_FAILED" | "PROCESSING_FAILED"
+  > = "DOWNLOAD_FAILED",
+): ApplicationError => {
   if (signal.reason instanceof ApplicationError) {
     return signal.reason;
   }
@@ -99,7 +104,7 @@ const processFailure = (error: unknown, signal: AbortSignal): ApplicationError =
     return error;
   }
 
-  return downloadFailed();
+  return fallbackCode === "PROCESSING_FAILED" ? processingFailed() : downloadFailed();
 };
 
 const detectMediaFile = (
@@ -481,6 +486,7 @@ export class MediaDownloadService implements MediaDownloader {
           },
           job,
           context,
+          "PROCESSING_FAILED",
         );
         filePath = processedPath;
         unsanitizedPaths.add(filePath);
@@ -547,7 +553,7 @@ export class MediaDownloadService implements MediaDownloader {
         timeoutMilliseconds: this.processTimeoutMilliseconds,
       });
     } catch (error) {
-      throw processFailure(error, signal);
+      throw processFailure(error, signal, "PROCESSING_FAILED");
     }
 
     let rawProbe: unknown;
@@ -622,6 +628,7 @@ export class MediaDownloadService implements MediaDownloader {
       },
       job,
       context,
+      "PROCESSING_FAILED",
     );
 
     const sanitizedProbe = await this.probe(sanitizedPath, context.signal);
@@ -649,12 +656,16 @@ export class MediaDownloadService implements MediaDownloader {
     options: ProcessRunOptions,
     job: TempJob,
     context: JobContext,
+    failureCode: Extract<
+      ApplicationErrorCode,
+      "DOWNLOAD_FAILED" | "PROCESSING_FAILED"
+    > = "DOWNLOAD_FAILED",
   ): Promise<void> {
     try {
       await runMonitored(this.processExecutor.run(options), job, context);
     } catch (error) {
       if (error instanceof ProcessRunnerError || error instanceof ApplicationError) {
-        throw processFailure(error, context.signal);
+        throw processFailure(error, context.signal, failureCode);
       }
 
       throw error;

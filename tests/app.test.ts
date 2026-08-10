@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createApp } from "../src/app";
-import { ApplicationError } from "../src/domain/errors";
+import {
+  ApplicationError,
+  type ApplicationErrorCode,
+  ERROR_DEFINITIONS,
+} from "../src/domain/errors";
 import type { MediaDownloader, MediaInfoInspector, PublicMediaInfo } from "../src/domain/media";
 import { ApiKeyAuthenticator } from "../src/services/api-key-authenticator";
 import { JobLimiter } from "../src/services/job-limiter";
@@ -277,7 +281,7 @@ describe("application", () => {
   test("returns a JSON failure before streaming when preparation fails", async () => {
     const response = await createTestApp(readyResult, undefined, {
       prepare: async () => {
-        throw new ApplicationError("DOWNLOAD_FAILED", 502, "The media download failed.");
+        throw new ApplicationError("DOWNLOAD_FAILED");
       },
     }).request("/api/v1/download", {
       body: JSON.stringify({ url: "https://youtube.com/watch?v=owned" }),
@@ -348,11 +352,7 @@ describe("application", () => {
     const internalDetail = "private extractor URL token=do-not-leak";
     const mediaInfo: MediaInfoInspector = {
       inspect: async () => {
-        const error = new ApplicationError(
-          "MEDIA_UNAVAILABLE",
-          404,
-          "The media is private, unavailable, or no longer exists.",
-        );
+        const error = new ApplicationError("MEDIA_UNAVAILABLE");
         error.stack = `${error.stack}\n${internalDetail}`;
         throw error;
       },
@@ -372,6 +372,30 @@ describe("application", () => {
     expect(responseText).not.toContain(internalDetail);
     expect(responseText).not.toContain("do-not-leak");
   });
+
+  test.each(Object.entries(ERROR_DEFINITIONS))(
+    "serializes %s with its stable public contract",
+    async (code, definition) => {
+      const response = await createTestApp(readyResult, {
+        inspect: async () => {
+          throw new ApplicationError(code as ApplicationErrorCode);
+        },
+      }).request("/api/v1/info", {
+        body: JSON.stringify({ url: "https://youtube.com/watch?v=owned" }),
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": testApiKey,
+        },
+        method: "POST",
+      });
+      const requestId = response.headers.get("X-Request-Id");
+
+      expect(response.status).toBe(definition.status);
+      expect(await response.json()).toEqual({
+        error: { code, message: definition.message, requestId },
+      });
+    },
+  );
 
   test("returns normalized not-found errors", async () => {
     const response = await createTestApp().request("/missing");
