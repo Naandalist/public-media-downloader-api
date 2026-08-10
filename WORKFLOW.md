@@ -116,21 +116,21 @@ Verification gate:
 
 ## Step 6 — Build a safe subprocess runner
 
-- [ ] Use Bun subprocess APIs with argument arrays.
-- [ ] Never concatenate client input into a shell command.
-- [ ] Disable shell execution.
-- [ ] Capture stdout and stderr with strict memory bounds.
-- [ ] Apply a timeout to every process.
-- [ ] Terminate the entire subprocess tree on timeout, abort, or shutdown.
-- [ ] Convert exit failures into internal typed errors.
-- [ ] Redact URLs, tokens, paths, and secrets from logs and client errors.
+- [x] Use Bun subprocess APIs with argument arrays.
+- [x] Never concatenate client input into a shell command.
+- [x] Disable shell execution.
+- [x] Capture stdout and stderr with strict memory bounds.
+- [x] Apply a timeout to every process.
+- [x] Terminate the entire subprocess tree on timeout, abort, or shutdown.
+- [x] Convert exit failures into internal typed errors.
+- [x] Redact URLs, tokens, paths, and secrets from logs and client errors.
 
 Verification gate:
 
-- [ ] Arguments containing shell metacharacters remain inert data.
-- [ ] Hanging fake processes are killed after timeout.
-- [ ] Large stderr output cannot exhaust application memory.
-- [ ] Client responses contain normalized errors, not raw process output.
+- [x] Arguments containing shell metacharacters remain inert data.
+- [x] Hanging fake processes are killed after timeout.
+- [x] Large stderr output cannot exhaust application memory.
+- [x] Client responses contain normalized errors, not raw process output.
 
 ## Step 7 — Check required media tools
 

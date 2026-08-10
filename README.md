@@ -116,6 +116,10 @@ or Instagram hostname. Validation rejects credentials, custom ports, deceptive l
 playlists, DNS results containing private/special-use addresses, unsafe redirect destinations,
 redirect loops, and excessive redirects.
 
+External tools run without a shell and receive internally generated argument arrays. The process
+runner bounds stdout/stderr memory, enforces timeouts and cancellation, terminates detached process
+groups, and returns typed generic failures that omit commands, URLs, output, paths, and secrets.
+
 A permanent API key must not be embedded in a published Android APK because app secrets can be extracted. Android production should use user/device authentication and short-lived backend-issued tokens. Google Play Integrity can be an additional abuse signal.
 
 ## Android and public-release note
