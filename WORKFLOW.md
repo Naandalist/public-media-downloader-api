@@ -60,21 +60,21 @@ Verification gate:
 
 ## Step 3 — Establish the Hono application boundary
 
-- [ ] Add `GET /health` for liveness.
-- [ ] Add `GET /ready` for dependency and temporary-directory readiness.
-- [ ] Add request-ID middleware.
-- [ ] Add security headers.
-- [ ] Add a central error handler.
-- [ ] Add a not-found response.
-- [ ] Mount API routes under `/api/v1`.
-- [ ] Keep process startup separate from app construction so tests can import the app.
+- [x] Add `GET /health` for liveness.
+- [x] Add `GET /ready` for dependency and temporary-directory readiness.
+- [x] Add request-ID middleware.
+- [x] Add security headers.
+- [x] Add a central error handler.
+- [x] Add a not-found response.
+- [x] Mount API routes under `/api/v1`.
+- [x] Keep process startup separate from app construction so tests can import the app.
 
 Verification gate:
 
-- [ ] `/health` returns `200` and `{ "status": "ok" }`.
-- [ ] Unknown routes return normalized JSON errors.
-- [ ] Every response contains `X-Request-Id`.
-- [ ] Unexpected errors do not expose stack traces or local paths.
+- [x] `/health` returns `200` and `{ "status": "ok" }`.
+- [x] Unknown routes return normalized JSON errors.
+- [x] Every response contains `X-Request-Id`.
+- [x] Unexpected errors do not expose stack traces or local paths.
 
 ## Step 4 — Implement API-key authentication
 

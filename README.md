@@ -133,7 +133,16 @@ Configuration is validated once during startup. The server refuses to start when
 is missing or invalid. `API_KEYS` accepts a comma-separated list of keys; every key must contain at
 least 32 characters. See [.env.example](./.env.example) for defaults and supported variables.
 
-The current foundation exposes a temporary service-identity response at `GET /`. Useful commands:
+Current foundation endpoints:
+
+| Endpoint      | Purpose                                        |
+| ------------- | ---------------------------------------------- |
+| `GET /health` | Process liveness; returns `{ "status": "ok" }` |
+| `GET /ready`  | Temporary-directory and media-tool readiness   |
+| `GET /api/v1` | Versioned API identity                         |
+
+`/ready` returns `503` until `yt-dlp`, `ffmpeg`, and `ffprobe` are installed and the configured
+temporary directory is writable. Useful commands:
 
 ```bash
 bun run dev       # Start with file watching
