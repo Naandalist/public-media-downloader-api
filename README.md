@@ -181,6 +181,11 @@ Startup emits one safe JSON dependency diagnostic containing only availability l
 return `503 SERVICE_NOT_READY` with `Retry-After` while any required tool or temporary storage is
 unavailable; `/health` remains available for liveness monitoring.
 
+Each download job receives a cryptographically random private directory below `TEMP_DIR`. Paths are
+contained to that directory, symbolic links are rejected, and cleanup runs after completion,
+failure, cancellation, or shutdown. Startup removes expired job directories using
+`TEMP_FILE_MAX_AGE_SECONDS`.
+
 ```bash
 bun run dev       # Start with file watching
 bun run start     # Start without file watching

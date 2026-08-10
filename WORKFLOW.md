@@ -173,21 +173,21 @@ Verification gate:
 
 ## Step 9 — Add isolated temporary-job storage
 
-- [ ] Generate a cryptographically random job ID.
-- [ ] Create one private directory per job under `TEMP_DIR`.
-- [ ] Verify all resolved job paths remain inside that directory.
-- [ ] Never use a client-controlled filename as a path.
-- [ ] Register cleanup immediately after directory creation.
-- [ ] Clean after success, error, timeout, client abort, and shutdown.
-- [ ] Add startup cleanup for stale job directories.
-- [ ] Prevent symlink/path traversal attacks.
+- [x] Generate a cryptographically random job ID.
+- [x] Create one private directory per job under `TEMP_DIR`.
+- [x] Verify all resolved job paths remain inside that directory.
+- [x] Never use a client-controlled filename as a path.
+- [x] Register cleanup immediately after directory creation.
+- [x] Clean after success, error, timeout, client abort, and shutdown.
+- [x] Add startup cleanup for stale job directories.
+- [x] Prevent symlink/path traversal attacks.
 
 Verification gate:
 
-- [ ] Parallel jobs use different directories.
-- [ ] Cleanup tests pass for every exit path.
-- [ ] Attempts to escape the job directory fail.
-- [ ] Stale directories older than the configured age are removed at startup.
+- [x] Parallel jobs use different directories.
+- [x] Cleanup tests pass for every exit path.
+- [x] Attempts to escape the job directory fail.
+- [x] Stale directories older than the configured age are removed at startup.
 
 ## Step 10 — Implement format selection
 
