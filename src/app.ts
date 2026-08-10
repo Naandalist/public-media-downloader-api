@@ -5,14 +5,16 @@ import { requestIdMiddleware } from "./middleware/request-id";
 import { securityHeadersMiddleware } from "./middleware/security-headers";
 import { createApiRoutes } from "./routes/api";
 import { createHealthRoutes } from "./routes/health";
+import type { ApiKeyAuthenticator } from "./services/api-key-authenticator";
 import type { ReadinessChecker } from "./services/readiness";
 import type { AppEnvironment } from "./types/http";
 
 export interface AppDependencies {
+  readonly apiKeyAuthenticator: ApiKeyAuthenticator;
   readonly readiness: ReadinessChecker;
 }
 
-export const createApp = ({ readiness }: AppDependencies) => {
+export const createApp = ({ apiKeyAuthenticator, readiness }: AppDependencies) => {
   const app = new Hono<AppEnvironment>();
 
   app.use("*", requestIdMiddleware);
@@ -21,7 +23,7 @@ export const createApp = ({ readiness }: AppDependencies) => {
   app.notFound(notFoundHandler);
 
   app.route("/", createHealthRoutes(readiness));
-  app.route("/api/v1", createApiRoutes());
+  app.route("/api/v1", createApiRoutes(apiKeyAuthenticator));
 
   return app;
 };

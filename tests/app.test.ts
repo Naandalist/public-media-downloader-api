@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import { createApp } from "../src/app";
+import { ApiKeyAuthenticator } from "../src/services/api-key-authenticator";
 import type { ReadinessChecker, ReadinessResult } from "../src/services/readiness";
+
+const testApiKey = "test-api-key-0123456789-abcdefgh";
 
 const readyResult: ReadinessResult = {
   checks: {
@@ -18,7 +21,10 @@ const createTestApp = (result: ReadinessResult = readyResult) => {
     check: async () => result,
   };
 
-  return createApp({ readiness });
+  return createApp({
+    apiKeyAuthenticator: new ApiKeyAuthenticator([testApiKey]),
+    readiness,
+  });
 };
 
 describe("application", () => {
@@ -48,10 +54,36 @@ describe("application", () => {
   });
 
   test("mounts the versioned API", async () => {
-    const response = await createTestApp().request("/api/v1");
+    const response = await createTestApp().request("/api/v1", {
+      headers: { "X-API-Key": testApiKey },
+    });
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ name: "media-downloader", version: "v1" });
+  });
+
+  test("rejects a missing API key", async () => {
+    const response = await createTestApp().request("/api/v1");
+    const body = (await response.json()) as {
+      error: { code: string; message: string; requestId: string };
+    };
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("WWW-Authenticate")).toBe('ApiKey realm="api"');
+    expect(body.error.code).toBe("UNAUTHORIZED");
+    expect(response.headers.get("X-Request-Id")).toBe(body.error.requestId);
+  });
+
+  test("rejects an invalid API key without exposing it", async () => {
+    const invalidApiKey = "invalid-api-key-0123456789-abcdef";
+    const response = await createTestApp().request("/api/v1", {
+      headers: { "X-API-Key": invalidApiKey },
+    });
+    const responseText = await response.text();
+
+    expect(response.status).toBe(401);
+    expect(responseText).not.toContain(invalidApiKey);
+    expect(responseText).not.toContain(testApiKey);
   });
 
   test("returns normalized not-found errors", async () => {
@@ -77,7 +109,10 @@ describe("application", () => {
     const readiness: ReadinessChecker = {
       check: () => Promise.reject(new Error("sensitive internal failure")),
     };
-    const response = await createApp({ readiness }).request("/ready");
+    const response = await createApp({
+      apiKeyAuthenticator: new ApiKeyAuthenticator([testApiKey]),
+      readiness,
+    }).request("/ready");
     const requestId = response.headers.get("X-Request-Id");
     const body = (await response.json()) as {
       error: { code: string; message: string; requestId: string };

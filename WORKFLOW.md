@@ -78,13 +78,13 @@ Verification gate:
 
 ## Step 4 — Implement API-key authentication
 
-- [ ] Read one or more keys from configuration.
-- [ ] Require `X-API-Key` on `/api/v1/*`.
-- [ ] Compare keys with timing-safe logic.
-- [ ] Return `401 UNAUTHORIZED` for missing or invalid keys.
-- [ ] Identify keys by safe labels in logs, never by secret value.
-- [ ] Leave `/health` available without authentication.
-- [ ] Decide whether `/ready` remains private or is restricted by the reverse proxy.
+- [x] Read one or more keys from configuration.
+- [x] Require `X-API-Key` on `/api/v1/*`.
+- [x] Compare keys with timing-safe logic.
+- [x] Return `401 UNAUTHORIZED` for missing or invalid keys.
+- [x] Identify keys by safe labels in logs, never by secret value.
+- [x] Leave `/health` available without authentication.
+- [x] Decide whether `/ready` remains private or is restricted by the reverse proxy.
 
 Verification gate:
 

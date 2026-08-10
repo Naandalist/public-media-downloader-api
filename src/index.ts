@@ -1,9 +1,11 @@
 import { createApp } from "./app";
 import { loadConfig } from "./config";
+import { ApiKeyAuthenticator } from "./services/api-key-authenticator";
 import { SystemReadinessChecker } from "./services/readiness";
 
 const config = loadConfig();
 const app = createApp({
+  apiKeyAuthenticator: new ApiKeyAuthenticator(config.apiKeys),
   readiness: new SystemReadinessChecker(config.tempDir),
 });
 

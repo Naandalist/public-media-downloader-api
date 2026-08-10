@@ -81,6 +81,12 @@ Options:
 
 On success, the download endpoint returns a media attachment. It does not return a permanent public URL.
 
+### Authentication
+
+Every `/api/v1` endpoint requires an `X-API-Key` header. `/health` and `/ready` remain
+unauthenticated for process monitoring. Missing or invalid keys return `401 UNAUTHORIZED` without
+exposing configured credentials. Multiple comma-separated keys support rotation through `API_KEYS`.
+
 ## Metadata removal
 
 The optional sanitizer removes nonessential container metadata, tags, comments, chapters, embedded artwork, and image metadata where supported. It preserves media streams and container data required for playback.
