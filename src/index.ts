@@ -1,6 +1,7 @@
 import { createApp } from "./app";
 import { loadConfig } from "./config";
 import { ApiKeyAuthenticator } from "./services/api-key-authenticator";
+import { JobLimiter } from "./services/job-limiter";
 import { MediaInfoService } from "./services/media-info";
 import { MediaUrlValidator } from "./services/media-url-validator";
 import { ProcessRunner } from "./services/process-runner";
@@ -12,6 +13,11 @@ const config = loadConfig();
 const readiness = new SystemReadinessChecker(config.tempDir);
 const processRunner = new ProcessRunner();
 const tempJobStorage = new TempJobStorage(config.tempDir, config.tempFileMaxAgeSeconds * 1_000);
+const jobLimiter = new JobLimiter(
+  config.maxConcurrentJobs,
+  config.jobTimeoutSeconds * 1_000,
+  config.maxOutputBytes,
+);
 const staleJobsRemoved = await tempJobStorage.initialize();
 const mediaInfo = new MediaInfoService(
   new MediaUrlValidator(),
@@ -31,6 +37,7 @@ console.log(
 
 const app = createApp({
   apiKeyAuthenticator: new ApiKeyAuthenticator(config.apiKeys),
+  jobLimiter,
   mediaInfo,
   readiness,
 });
@@ -51,7 +58,7 @@ const shutdown = async () => {
 
   shuttingDown = true;
   server.stop(false);
-  await Promise.all([processRunner.shutdown(), tempJobStorage.shutdown()]);
+  await Promise.all([jobLimiter.shutdown(), processRunner.shutdown(), tempJobStorage.shutdown()]);
   process.exit(0);
 };
 

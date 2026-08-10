@@ -4,6 +4,7 @@ import { createApp } from "../src/app";
 import { ApplicationError } from "../src/domain/errors";
 import type { MediaInfoInspector, PublicMediaInfo } from "../src/domain/media";
 import { ApiKeyAuthenticator } from "../src/services/api-key-authenticator";
+import { JobLimiter } from "../src/services/job-limiter";
 import type { ReadinessChecker, ReadinessResult } from "../src/services/readiness";
 
 const testApiKey = "test-api-key-0123456789-abcdefgh";
@@ -37,6 +38,7 @@ const createTestApp = (
 
   return createApp({
     apiKeyAuthenticator: new ApiKeyAuthenticator([testApiKey]),
+    jobLimiter: new JobLimiter(2, 5_000, 1_024),
     mediaInfo,
     readiness,
   });
@@ -146,6 +148,45 @@ describe("application", () => {
     expect(await response.json()).toEqual(publicMediaInfo);
   });
 
+  test("returns service busy with retry guidance when job capacity is full", async () => {
+    let releaseInspection: () => void = () => undefined;
+    let markInspectionStarted: () => void = () => undefined;
+    const inspectionStarted = new Promise<void>((resolve) => {
+      markInspectionStarted = resolve;
+    });
+    const inspectionReleased = new Promise<void>((resolve) => {
+      releaseInspection = resolve;
+    });
+    const readiness: ReadinessChecker = { check: async () => readyResult };
+    const app = createApp({
+      apiKeyAuthenticator: new ApiKeyAuthenticator([testApiKey]),
+      jobLimiter: new JobLimiter(1, 5_000, 1_024, 19),
+      mediaInfo: {
+        inspect: async () => {
+          markInspectionStarted();
+          await inspectionReleased;
+          return publicMediaInfo;
+        },
+      },
+      readiness,
+    });
+    const request = {
+      body: JSON.stringify({ url: "https://youtube.com/watch?v=owned" }),
+      headers: { "Content-Type": "application/json", "X-API-Key": testApiKey },
+      method: "POST",
+    };
+    const firstResponse = app.request("/api/v1/info", request);
+    await inspectionStarted;
+    const busyResponse = await app.request("/api/v1/info", request);
+
+    expect(busyResponse.status).toBe(503);
+    expect(busyResponse.headers.get("Retry-After")).toBe("19");
+    expect(await busyResponse.json()).toMatchObject({ error: { code: "SERVICE_BUSY" } });
+
+    releaseInspection();
+    expect((await firstResponse).status).toBe(200);
+  });
+
   test("rejects malformed and extra request fields", async () => {
     const malformedResponse = await createTestApp().request("/api/v1/info", {
       body: "not-json",
@@ -222,6 +263,7 @@ describe("application", () => {
     };
     const response = await createApp({
       apiKeyAuthenticator: new ApiKeyAuthenticator([testApiKey]),
+      jobLimiter: new JobLimiter(2, 5_000, 1_024),
       mediaInfo: { inspect: async () => publicMediaInfo },
       readiness,
     }).request("/ready");

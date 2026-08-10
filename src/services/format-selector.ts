@@ -44,6 +44,7 @@ export interface FormatSelection {
   readonly audioSource: SelectedAudioSource | null;
   readonly includesAudio: boolean;
   readonly includesVideo: boolean;
+  readonly knownOutputBytes: number | null;
   readonly mode: DownloadMode;
   readonly preserveAudioSource: boolean;
   readonly quality: MediaQuality;
@@ -106,6 +107,15 @@ const audioSourceFor = (format: ExtractedFormat): SelectedAudioSource => ({
   mimeType: format.extension === null ? null : (audioMimeTypes[format.extension] ?? null),
 });
 
+const combinedSize = (...formats: readonly ExtractedFormat[]): number | null => {
+  if (formats.some((format) => format.fileSizeBytes === null)) {
+    return null;
+  }
+
+  const total = formats.reduce((sum, format) => sum + (format.fileSizeBytes ?? 0), 0);
+  return Number.isSafeInteger(total) ? total : null;
+};
+
 export class FormatSelector {
   select(
     formats: readonly ExtractedFormat[],
@@ -126,6 +136,7 @@ export class FormatSelector {
         audioSource: Object.freeze(audioSourceFor(audio)),
         includesAudio: true,
         includesVideo: false,
+        knownOutputBytes: combinedSize(audio),
         mode,
         preserveAudioSource: true,
         quality,
@@ -154,6 +165,7 @@ export class FormatSelector {
         audioSource: null,
         includesAudio: false,
         includesVideo: true,
+        knownOutputBytes: combinedSize(video),
         mode,
         preserveAudioSource: false,
         quality,
@@ -177,6 +189,7 @@ export class FormatSelector {
         audioSource: Object.freeze(audioSourceFor(audio)),
         includesAudio: true,
         includesVideo: true,
+        knownOutputBytes: combinedSize(video, audio),
         mode,
         preserveAudioSource: true,
         quality,
@@ -198,6 +211,7 @@ export class FormatSelector {
       audioSource: Object.freeze(audioSourceFor(combined)),
       includesAudio: true,
       includesVideo: true,
+      knownOutputBytes: combinedSize(combined),
       mode,
       preserveAudioSource: true,
       quality,

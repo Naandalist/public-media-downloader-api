@@ -229,21 +229,21 @@ Verification gate:
 
 ## Step 11 — Enforce capacity, size, and time limits
 
-- [ ] Add an in-memory semaphore with two concurrent slots.
-- [ ] Hold the slot throughout inspection, download, processing, and streaming.
-- [ ] Return `503 SERVICE_BUSY` with `Retry-After` when full.
-- [ ] Enforce total job timeout.
-- [ ] Track bytes written during download.
-- [ ] Stop processing when output exceeds 1 GiB.
-- [ ] Reject known over-limit media before download.
-- [ ] Handle incorrect or missing remote size metadata.
+- [x] Add an in-memory semaphore with two concurrent slots.
+- [x] Hold the slot throughout inspection, download, processing, and streaming.
+- [x] Return `503 SERVICE_BUSY` with `Retry-After` when full.
+- [x] Enforce total job timeout.
+- [x] Track bytes written during download.
+- [x] Stop processing when output exceeds 1 GiB.
+- [x] Reject known over-limit media before download.
+- [x] Handle incorrect or missing remote size metadata.
 
 Verification gate:
 
-- [ ] Third simultaneous request is rejected while two jobs run.
-- [ ] Over-limit fixtures are terminated and cleaned.
-- [ ] Timed-out jobs release their concurrency slot.
-- [ ] Failed jobs cannot leave orphan processes.
+- [x] Third simultaneous request is rejected while two jobs run.
+- [x] Over-limit fixtures are terminated and cleaned.
+- [x] Timed-out jobs release their concurrency slot.
+- [x] Failed jobs cannot leave orphan processes.
 
 ## Step 12 — Implement the download endpoint
 

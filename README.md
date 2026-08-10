@@ -190,6 +190,13 @@ contained to that directory, symbolic links are rejected, and cleanup runs after
 failure, cancellation, or shutdown. Startup removes expired job directories using
 `TEMP_FILE_MAX_AGE_SECONDS`.
 
+Media inspection and download work use a shared in-memory capacity limiter configured by
+`MAX_CONCURRENT_JOBS`. A job holds its lease for its full lifecycle; excess requests return `503
+SERVICE_BUSY` with `Retry-After`. `JOB_TIMEOUT_SECONDS` aborts the job signal and external process
+tree. Extractor-reported sizes allow early rejection, while every downloaded byte remains subject
+to `MAX_OUTPUT_BYTES`, so missing or inaccurate remote metadata cannot bypass the limit. Capacity
+and byte limits are per process; multi-instance deployment requires shared admission control.
+
 ```bash
 bun run dev       # Start with file watching
 bun run start     # Start without file watching

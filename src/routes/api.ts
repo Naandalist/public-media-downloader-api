@@ -6,6 +6,7 @@ import type { MediaInfoInspector } from "../domain/media";
 import { createApiKeyMiddleware } from "../middleware/api-key";
 import { createMediaReadinessMiddleware } from "../middleware/media-readiness";
 import type { ApiKeyAuthenticator } from "../services/api-key-authenticator";
+import type { JobLimiter } from "../services/job-limiter";
 import type { ReadinessChecker } from "../services/readiness";
 import type { AppEnvironment } from "../types/http";
 
@@ -13,6 +14,7 @@ export const createApiRoutes = (
   apiKeyAuthenticator: ApiKeyAuthenticator,
   readiness: ReadinessChecker,
   mediaInfo: MediaInfoInspector,
+  jobLimiter: JobLimiter,
 ) => {
   const api = new Hono<AppEnvironment>();
 
@@ -44,7 +46,12 @@ export const createApiRoutes = (
       );
     }
 
-    return context.json(await mediaInfo.inspect(parsed.data.url, context.req.raw.signal));
+    return context.json(
+      await jobLimiter.run(
+        ({ signal }) => mediaInfo.inspect(parsed.data.url, signal),
+        context.req.raw.signal,
+      ),
+    );
   });
 
   api.get("/", (context) =>

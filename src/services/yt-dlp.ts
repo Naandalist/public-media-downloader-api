@@ -12,6 +12,8 @@ const extractorFormatSchema = z.object({
     .regex(/^[a-zA-Z0-9]{1,10}$/)
     .nullable()
     .optional(),
+  filesize: z.number().int().safe().nonnegative().nullable().optional(),
+  filesize_approx: z.number().int().safe().nonnegative().nullable().optional(),
   format_id: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/),
   height: z.number().finite().positive().nullable().optional(),
   tbr: z.number().finite().nonnegative().nullable().optional(),
@@ -38,6 +40,7 @@ export interface ExtractedFormat {
   readonly audioBitrate: number | null;
   readonly audioCodec: string | null;
   readonly extension: string | null;
+  readonly fileSizeBytes: number | null;
   readonly formatId: string;
   readonly hasAudio: boolean;
   readonly hasVideo: boolean;
@@ -145,6 +148,7 @@ export class YtDlpAdapter implements MediaExtractor {
           ? null
           : format.acodec,
       extension: format.ext?.toLowerCase() ?? null,
+      fileSizeBytes: format.filesize ?? format.filesize_approx ?? null,
       formatId: format.format_id,
       hasAudio: format.acodec !== undefined && format.acodec !== null && format.acodec !== "none",
       hasVideo: format.vcodec !== undefined && format.vcodec !== null && format.vcodec !== "none",

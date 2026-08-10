@@ -9,6 +9,7 @@ const format = (values: Partial<ExtractedFormat>): ExtractedFormat => ({
   audioBitrate: null,
   audioCodec: null,
   extension: null,
+  fileSizeBytes: null,
   formatId: "format",
   hasAudio: false,
   hasVideo: false,
@@ -149,6 +150,16 @@ describe("FormatSelector", () => {
       requiresVideoRemoval: true,
       selector: "combined-720",
     });
+  });
+
+  test("reports a known selected size without trusting missing metadata", () => {
+    const sizedFormats = [
+      format({ fileSizeBytes: 25, formatId: "audio", hasAudio: true }),
+      format({ fileSizeBytes: 75, formatId: "video", hasVideo: true, height: 720 }),
+    ];
+
+    expect(selector.select(sizedFormats, "video_audio", "best").knownOutputBytes).toBe(100);
+    expect(selector.select(formats, "video_audio", "best").knownOutputBytes).toBeNull();
   });
 
   test("rejects raw mode, quality, and unsafe extractor selectors", () => {

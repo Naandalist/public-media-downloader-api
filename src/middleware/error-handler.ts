@@ -5,6 +5,10 @@ import type { AppEnvironment } from "../types/http";
 
 export const errorHandler: ErrorHandler<AppEnvironment> = (error, context) => {
   if (error instanceof ApplicationError) {
+    if (error.options.retryAfterSeconds !== undefined) {
+      context.header("Retry-After", String(error.options.retryAfterSeconds));
+    }
+
     return context.json(
       {
         error: {

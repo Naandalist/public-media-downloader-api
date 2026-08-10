@@ -4,9 +4,14 @@ export type ApplicationErrorCode =
   | "LIMIT_EXCEEDED"
   | "MEDIA_UNAVAILABLE"
   | "QUALITY_UNAVAILABLE"
+  | "SERVICE_BUSY"
   | "UNSUPPORTED_URL";
 
-export type ApplicationErrorStatus = 400 | 404 | 413 | 422 | 502;
+export type ApplicationErrorStatus = 400 | 404 | 413 | 422 | 502 | 503;
+
+export interface ApplicationErrorOptions {
+  readonly retryAfterSeconds?: number;
+}
 
 export class ApplicationError extends Error {
   override readonly name = "ApplicationError";
@@ -15,6 +20,7 @@ export class ApplicationError extends Error {
     readonly code: ApplicationErrorCode,
     readonly status: ApplicationErrorStatus,
     message: string,
+    readonly options: ApplicationErrorOptions = {},
   ) {
     super(message);
   }

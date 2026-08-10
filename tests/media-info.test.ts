@@ -11,6 +11,7 @@ const format = (
   audioBitrate: null,
   audioCodec: null,
   extension: null,
+  fileSizeBytes: null,
   formatId: "test-format",
   hasAudio: false,
   hasVideo: false,

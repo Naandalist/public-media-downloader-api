@@ -11,6 +11,7 @@
       "acodec": "opus",
       "abr": 128,
       "ext": "webm",
+      "filesize": 1200000,
       "vcodec": "none",
       "url": "https://signed-media.example/audio?token=do-not-leak"
     },
@@ -20,6 +21,7 @@
       "vcodec": "vp9",
       "height": 720,
       "ext": "webm",
+      "filesize_approx": 8800000,
       "url": "https://signed-media.example/video?token=do-not-leak"
     },
     {
