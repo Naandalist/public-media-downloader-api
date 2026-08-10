@@ -1,0 +1,42 @@
+{
+  "id": "owned-video",
+  "title": "Owned test video",
+  "duration": 125.5,
+  "thumbnail": "https://images.example/owned-video.jpg",
+  "webpage_url": "https://youtube.com/watch?v=owned-video",
+  "original_url": "https://youtube.com/watch?v=owned-video&secret=raw-input",
+  "formats": [
+    {
+      "format_id": "audio-opus",
+      "acodec": "opus",
+      "vcodec": "none",
+      "url": "https://signed-media.example/audio?token=do-not-leak"
+    },
+    {
+      "format_id": "video-720",
+      "acodec": "none",
+      "vcodec": "vp9",
+      "height": 720,
+      "url": "https://signed-media.example/video?token=do-not-leak"
+    },
+    {
+      "format_id": "video-360",
+      "acodec": "none",
+      "vcodec": "h264",
+      "height": 360,
+      "url": "https://signed-media.example/video-360?token=do-not-leak"
+    },
+    {
+      "format_id": "video-144",
+      "acodec": "none",
+      "vcodec": "h264",
+      "height": 144,
+      "url": "https://signed-media.example/video-144?token=do-not-leak"
+    }
+  ],
+  "requested_formats": [
+    {
+      "url": "https://signed-media.example/requested?token=do-not-leak"
+    }
+  ]
+}

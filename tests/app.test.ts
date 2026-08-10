@@ -1,10 +1,21 @@
 import { describe, expect, test } from "bun:test";
 
 import { createApp } from "../src/app";
+import { ApplicationError } from "../src/domain/errors";
+import type { MediaInfoInspector, PublicMediaInfo } from "../src/domain/media";
 import { ApiKeyAuthenticator } from "../src/services/api-key-authenticator";
 import type { ReadinessChecker, ReadinessResult } from "../src/services/readiness";
 
 const testApiKey = "test-api-key-0123456789-abcdefgh";
+const publicMediaInfo: PublicMediaInfo = {
+  durationSeconds: 120,
+  isPlaylist: false,
+  modes: ["video_audio", "video_only", "audio_only"],
+  platform: "youtube",
+  qualities: ["best", "720p", "480p", "180p"],
+  thumbnail: "https://images.example/thumbnail.jpg",
+  title: "Owned test media",
+};
 
 const readyResult: ReadinessResult = {
   checks: {
@@ -16,13 +27,17 @@ const readyResult: ReadinessResult = {
   status: "ready",
 };
 
-const createTestApp = (result: ReadinessResult = readyResult) => {
+const createTestApp = (
+  result: ReadinessResult = readyResult,
+  mediaInfo: MediaInfoInspector = { inspect: async () => publicMediaInfo },
+) => {
   const readiness: ReadinessChecker = {
     check: async () => result,
   };
 
   return createApp({
     apiKeyAuthenticator: new ApiKeyAuthenticator([testApiKey]),
+    mediaInfo,
     readiness,
   });
 };
@@ -117,6 +132,71 @@ describe("application", () => {
     expect(response.status).toBe(401);
   });
 
+  test("returns normalized media information", async () => {
+    const response = await createTestApp().request("/api/v1/info", {
+      body: JSON.stringify({ url: "https://youtube.com/watch?v=owned" }),
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": testApiKey,
+      },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(publicMediaInfo);
+  });
+
+  test("rejects malformed and extra request fields", async () => {
+    const malformedResponse = await createTestApp().request("/api/v1/info", {
+      body: "not-json",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": testApiKey,
+      },
+      method: "POST",
+    });
+    const extraFieldResponse = await createTestApp().request("/api/v1/info", {
+      body: JSON.stringify({ extra: true, url: "https://youtube.com/watch?v=owned" }),
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": testApiKey,
+      },
+      method: "POST",
+    });
+
+    expect(malformedResponse.status).toBe(400);
+    expect(extraFieldResponse.status).toBe(400);
+  });
+
+  test("returns stable media errors without leaking internal details", async () => {
+    const internalDetail = "private extractor URL token=do-not-leak";
+    const mediaInfo: MediaInfoInspector = {
+      inspect: async () => {
+        const error = new ApplicationError(
+          "MEDIA_UNAVAILABLE",
+          404,
+          "The media is private, unavailable, or no longer exists.",
+        );
+        error.stack = `${error.stack}\n${internalDetail}`;
+        throw error;
+      },
+    };
+    const response = await createTestApp(readyResult, mediaInfo).request("/api/v1/info", {
+      body: JSON.stringify({ url: "https://youtube.com/watch?v=private" }),
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": testApiKey,
+      },
+      method: "POST",
+    });
+    const responseText = await response.text();
+
+    expect(response.status).toBe(404);
+    expect(responseText).toContain("MEDIA_UNAVAILABLE");
+    expect(responseText).not.toContain(internalDetail);
+    expect(responseText).not.toContain("do-not-leak");
+  });
+
   test("returns normalized not-found errors", async () => {
     const response = await createTestApp().request("/missing");
     const requestId = response.headers.get("X-Request-Id");
@@ -142,6 +222,7 @@ describe("application", () => {
     };
     const response = await createApp({
       apiKeyAuthenticator: new ApiKeyAuthenticator([testApiKey]),
+      mediaInfo: { inspect: async () => publicMediaInfo },
       readiness,
     }).request("/ready");
     const requestId = response.headers.get("X-Request-Id");

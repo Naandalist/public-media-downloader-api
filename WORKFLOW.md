@@ -148,13 +148,13 @@ Verification gate:
 
 ## Step 8 — Implement media inspection
 
-- [ ] Create a `yt-dlp` adapter returning parsed JSON.
-- [ ] Reject raw/unexpected extractor output.
-- [ ] Normalize title, duration, platform, thumbnail, playlist state, and available formats.
-- [ ] Enforce the 30-minute duration limit when duration is known.
-- [ ] Map available streams to supported quality options.
-- [ ] Create `POST /api/v1/info`.
-- [ ] Return only the normalized public response shape.
+- [x] Create a `yt-dlp` adapter returning parsed JSON.
+- [x] Reject raw/unexpected extractor output.
+- [x] Normalize title, duration, platform, thumbnail, playlist state, and available formats.
+- [x] Enforce the 30-minute duration limit when duration is known.
+- [x] Map available streams to supported quality options.
+- [x] Create `POST /api/v1/info`.
+- [x] Return only the normalized public response shape.
 
 Request:
 
@@ -166,10 +166,10 @@ Request:
 
 Verification gate:
 
-- [ ] Valid fixtures return normalized metadata.
-- [ ] Private, deleted, unavailable, and playlist fixtures return correct errors.
-- [ ] Over-duration media returns `LIMIT_EXCEEDED`.
-- [ ] Raw extractor fields and signed media URLs are not leaked.
+- [x] Valid fixtures return normalized metadata.
+- [x] Private, deleted, unavailable, and playlist fixtures return correct errors.
+- [x] Over-duration media returns `LIMIT_EXCEEDED`.
+- [x] Raw extractor fields and signed media URLs are not leaked.
 
 ## Step 9 — Add isolated temporary-job storage
 

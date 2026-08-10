@@ -1,0 +1,11 @@
+{
+  "_type": "playlist",
+  "id": "owned-playlist",
+  "title": "Owned playlist",
+  "entries": [
+    {
+      "id": "first-private-entry",
+      "url": "https://signed-media.example/private-entry?token=do-not-leak"
+    }
+  ]
+}

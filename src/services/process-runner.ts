@@ -45,6 +45,10 @@ export interface ProcessRunResult {
   readonly stdout: string;
 }
 
+export interface ProcessExecutor {
+  run(options: ProcessRunOptions): Promise<ProcessRunResult>;
+}
+
 interface CapturedOutput {
   readonly exceeded: boolean;
   readonly text: string;

@@ -2,7 +2,9 @@
 
 Planned Bun + Hono backend and web interface for downloading publicly accessible media from YouTube, X/Twitter, Facebook, TikTok, and Instagram.
 
-> Status: early implementation. Workflow Step 1 is complete: Bun, strict TypeScript, Hono, dependencies, and the initial test setup are ready. See [PLAN.md](./PLAN.md) for the implementation contract and [WORKFLOW.md](./WORKFLOW.md) for progress.
+> Status: early implementation. Workflow Steps 1–8 are complete, including authenticated media
+> inspection. Downloading and post-processing are not implemented yet. See [PLAN.md](./PLAN.md) for
+> the implementation contract and [WORKFLOW.md](./WORKFLOW.md) for progress.
 
 ## Planned capabilities
 
@@ -53,6 +55,22 @@ Content-Type: application/json
   "url": "https://example.com/public-media"
 }
 ```
+
+Normalized response:
+
+```json
+{
+  "title": "Owned media",
+  "durationSeconds": 125.5,
+  "platform": "youtube",
+  "thumbnail": "https://example.com/thumbnail.jpg",
+  "isPlaylist": false,
+  "qualities": ["best", "720p", "480p", "180p"],
+  "modes": ["video_audio", "video_only", "audio_only"]
+}
+```
+
+The endpoint never returns raw extractor formats, signed stream URLs, cookies, or extractor output.
 
 ### Download media
 

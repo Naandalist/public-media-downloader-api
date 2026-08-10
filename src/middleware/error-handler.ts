@@ -1,9 +1,23 @@
 import type { ErrorHandler, NotFoundHandler } from "hono";
 
+import { ApplicationError } from "../domain/errors";
 import type { AppEnvironment } from "../types/http";
 
-export const errorHandler: ErrorHandler<AppEnvironment> = (_error, context) =>
-  context.json(
+export const errorHandler: ErrorHandler<AppEnvironment> = (error, context) => {
+  if (error instanceof ApplicationError) {
+    return context.json(
+      {
+        error: {
+          code: error.code,
+          message: error.message,
+          requestId: context.get("requestId"),
+        },
+      },
+      error.status,
+    );
+  }
+
+  return context.json(
     {
       error: {
         code: "INTERNAL_ERROR",
@@ -13,6 +27,7 @@ export const errorHandler: ErrorHandler<AppEnvironment> = (_error, context) =>
     },
     500,
   );
+};
 
 export const notFoundHandler: NotFoundHandler<AppEnvironment> = (context) =>
   context.json(
