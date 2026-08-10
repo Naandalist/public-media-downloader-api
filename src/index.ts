@@ -1,7 +1,9 @@
 import { createApp } from "./app";
 import { loadConfig } from "./config";
 import { ApiKeyAuthenticator } from "./services/api-key-authenticator";
+import { FormatSelector } from "./services/format-selector";
 import { JobLimiter } from "./services/job-limiter";
+import { MediaDownloadService } from "./services/media-download";
 import { MediaInfoService } from "./services/media-info";
 import { MediaUrlValidator } from "./services/media-url-validator";
 import { ProcessRunner } from "./services/process-runner";
@@ -26,6 +28,13 @@ const mediaInfo = new MediaInfoService(
   }),
   config.maxDurationSeconds,
 );
+const mediaDownloader = new MediaDownloadService(
+  mediaInfo,
+  new FormatSelector(),
+  processRunner,
+  tempJobStorage,
+  { processTimeoutMilliseconds: config.jobTimeoutSeconds * 1_000 },
+);
 const startupReadiness = await readiness.check();
 
 console.log(
@@ -38,6 +47,7 @@ console.log(
 const app = createApp({
   apiKeyAuthenticator: new ApiKeyAuthenticator(config.apiKeys),
   jobLimiter,
+  mediaDownloader,
   mediaInfo,
   readiness,
 });

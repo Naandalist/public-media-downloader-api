@@ -1,13 +1,23 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { createApp } from "../src/app";
 import { ApplicationError } from "../src/domain/errors";
-import type { MediaInfoInspector, PublicMediaInfo } from "../src/domain/media";
+import type { MediaDownloader, MediaInfoInspector, PublicMediaInfo } from "../src/domain/media";
 import { ApiKeyAuthenticator } from "../src/services/api-key-authenticator";
 import { JobLimiter } from "../src/services/job-limiter";
 import type { ReadinessChecker, ReadinessResult } from "../src/services/readiness";
 
 const testApiKey = "test-api-key-0123456789-abcdefgh";
+const temporaryRoots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(
+    temporaryRoots.splice(0).map((root) => rm(root, { force: true, recursive: true })),
+  );
+});
 const publicMediaInfo: PublicMediaInfo = {
   durationSeconds: 120,
   isPlaylist: false,
@@ -28,9 +38,16 @@ const readyResult: ReadinessResult = {
   status: "ready",
 };
 
+const unusedMediaDownloader: MediaDownloader = {
+  prepare: async () => {
+    throw new Error("Download service was not expected in this test");
+  },
+};
+
 const createTestApp = (
   result: ReadinessResult = readyResult,
   mediaInfo: MediaInfoInspector = { inspect: async () => publicMediaInfo },
+  mediaDownloader: MediaDownloader = unusedMediaDownloader,
 ) => {
   const readiness: ReadinessChecker = {
     check: async () => result,
@@ -39,6 +56,7 @@ const createTestApp = (
   return createApp({
     apiKeyAuthenticator: new ApiKeyAuthenticator([testApiKey]),
     jobLimiter: new JobLimiter(2, 5_000, 1_024),
+    mediaDownloader,
     mediaInfo,
     readiness,
   });
@@ -161,6 +179,7 @@ describe("application", () => {
     const app = createApp({
       apiKeyAuthenticator: new ApiKeyAuthenticator([testApiKey]),
       jobLimiter: new JobLimiter(1, 5_000, 1_024, 19),
+      mediaDownloader: unusedMediaDownloader,
       mediaInfo: {
         inspect: async () => {
           markInspectionStarted();
@@ -185,6 +204,122 @@ describe("application", () => {
 
     releaseInspection();
     expect((await firstResponse).status).toBe(200);
+  });
+
+  test("streams a prepared download with safe attachment headers and defaults", async () => {
+    const root = await mkdtemp(join(tmpdir(), "downloader-app-"));
+    temporaryRoots.push(root);
+    const filePath = join(root, "prepared.webm");
+    await Bun.write(filePath, "media-body");
+    let receivedRequest: Parameters<MediaDownloader["prepare"]>[0] | undefined;
+    let cleaned = false;
+    const mediaDownloader: MediaDownloader = {
+      prepare: async (request) => {
+        receivedRequest = request;
+        return {
+          cleanup: async () => {
+            cleaned = true;
+            await rm(root, { force: true, recursive: true });
+          },
+          extension: "webm",
+          filePath,
+          mimeType: "video/webm",
+          sizeBytes: 10,
+          title: '../Owned\n"media"',
+        };
+      },
+    };
+    const response = await createTestApp(readyResult, undefined, mediaDownloader).request(
+      "/api/v1/download",
+      {
+        body: JSON.stringify({ url: "https://youtube.com/watch?v=owned" }),
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": testApiKey,
+        },
+        method: "POST",
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("video/webm");
+    expect(response.headers.get("Content-Length")).toBe("10");
+    expect(response.headers.get("Content-Disposition")).toContain("Owned media.webm");
+    expect(response.headers.get("Content-Disposition")).not.toContain("\n");
+    expect(await response.text()).toBe("media-body");
+    expect(cleaned).toBe(true);
+    expect(receivedRequest).toEqual({
+      mode: "video_audio",
+      quality: "best",
+      stripMetadata: false,
+      url: "https://youtube.com/watch?v=owned",
+    });
+  });
+
+  test("rejects invalid download fields before preparing media", async () => {
+    let called = false;
+    const response = await createTestApp(readyResult, undefined, {
+      prepare: async () => {
+        called = true;
+        throw new Error("unexpected");
+      },
+    }).request("/api/v1/download", {
+      body: JSON.stringify({ mode: "raw-selector", url: "https://youtube.com/watch?v=owned" }),
+      headers: { "Content-Type": "application/json", "X-API-Key": testApiKey },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: { code: "INVALID_REQUEST" } });
+    expect(called).toBe(false);
+  });
+
+  test("returns a JSON failure before streaming when preparation fails", async () => {
+    const response = await createTestApp(readyResult, undefined, {
+      prepare: async () => {
+        throw new ApplicationError("DOWNLOAD_FAILED", 502, "The media download failed.");
+      },
+    }).request("/api/v1/download", {
+      body: JSON.stringify({ url: "https://youtube.com/watch?v=owned" }),
+      headers: { "Content-Type": "application/json", "X-API-Key": testApiKey },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(502);
+    expect(response.headers.get("Content-Disposition")).toBeNull();
+    expect(await response.json()).toMatchObject({ error: { code: "DOWNLOAD_FAILED" } });
+  });
+
+  test("cleans prepared media when the response stream is cancelled", async () => {
+    const root = await mkdtemp(join(tmpdir(), "downloader-cancel-"));
+    temporaryRoots.push(root);
+    const filePath = join(root, "prepared.webm");
+    await Bun.write(filePath, new Uint8Array(64 * 1_024));
+    let completeCleanup: () => void = () => undefined;
+    const cleanupCompleted = new Promise<void>((resolve) => {
+      completeCleanup = resolve;
+    });
+    const response = await createTestApp(readyResult, undefined, {
+      prepare: async () => ({
+        cleanup: async () => {
+          await rm(root, { force: true, recursive: true });
+          completeCleanup();
+        },
+        extension: "webm",
+        filePath,
+        mimeType: "video/webm",
+        sizeBytes: 64 * 1_024,
+        title: "Owned media",
+      }),
+    }).request("/api/v1/download", {
+      body: JSON.stringify({ url: "https://youtube.com/watch?v=owned" }),
+      headers: { "Content-Type": "application/json", "X-API-Key": testApiKey },
+      method: "POST",
+    });
+
+    await response.body?.cancel("test cancellation");
+    await cleanupCompleted;
+    expect(await Bun.file(filePath).exists()).toBe(false);
   });
 
   test("rejects malformed and extra request fields", async () => {
@@ -264,6 +399,7 @@ describe("application", () => {
     const response = await createApp({
       apiKeyAuthenticator: new ApiKeyAuthenticator([testApiKey]),
       jobLimiter: new JobLimiter(2, 5_000, 1_024),
+      mediaDownloader: unusedMediaDownloader,
       mediaInfo: { inspect: async () => publicMediaInfo },
       readiness,
     }).request("/ready");

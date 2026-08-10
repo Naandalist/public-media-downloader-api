@@ -1,6 +1,7 @@
 import { ApplicationError } from "../domain/errors";
 import type {
   DownloadMode,
+  InspectedMediaSource,
   MediaInfoInspector,
   MediaQuality,
   PublicMediaInfo,
@@ -20,34 +21,7 @@ export class MediaInfoService implements MediaInfoInspector {
   ) {}
 
   async inspect(inputUrl: string, signal?: AbortSignal): Promise<PublicMediaInfo> {
-    let validatedUrl: Awaited<ReturnType<MediaUrlValidator["validate"]>>;
-
-    try {
-      validatedUrl = await this.urlValidator.validate(inputUrl);
-    } catch (error) {
-      if (error instanceof UrlValidationError) {
-        if (error.code === "UNSUPPORTED_URL") {
-          throw new ApplicationError("UNSUPPORTED_URL", 400, error.message);
-        }
-
-        throw new ApplicationError("INVALID_REQUEST", 400, error.message);
-      }
-
-      throw error;
-    }
-
-    const extracted = await this.extractor.extract(validatedUrl.url, signal);
-
-    if (
-      extracted.durationSeconds !== null &&
-      extracted.durationSeconds > this.maximumDurationSeconds
-    ) {
-      throw new ApplicationError(
-        "LIMIT_EXCEEDED",
-        413,
-        `Media duration exceeds the ${this.maximumDurationSeconds}-second limit.`,
-      );
-    }
+    const { extracted, platform } = await this.inspectSource(inputUrl, signal);
 
     const videoFormats = extracted.formats.filter((format) => format.hasVideo);
     const hasVideo = videoFormats.length > 0;
@@ -90,10 +64,47 @@ export class MediaInfoService implements MediaInfoInspector {
       durationSeconds: extracted.durationSeconds,
       isPlaylist: false as const,
       modes: Object.freeze(modes),
-      platform: validatedUrl.platform,
+      platform,
       qualities: Object.freeze(qualities),
       ...(extracted.thumbnail === undefined ? {} : { thumbnail: extracted.thumbnail }),
       title: extracted.title,
+    });
+  }
+
+  async inspectSource(inputUrl: string, signal?: AbortSignal): Promise<InspectedMediaSource> {
+    let validatedUrl: Awaited<ReturnType<MediaUrlValidator["validate"]>>;
+
+    try {
+      validatedUrl = await this.urlValidator.validate(inputUrl);
+    } catch (error) {
+      if (error instanceof UrlValidationError) {
+        if (error.code === "UNSUPPORTED_URL") {
+          throw new ApplicationError("UNSUPPORTED_URL", 400, error.message);
+        }
+
+        throw new ApplicationError("INVALID_REQUEST", 400, error.message);
+      }
+
+      throw error;
+    }
+
+    const extracted = await this.extractor.extract(validatedUrl.url, signal);
+
+    if (
+      extracted.durationSeconds !== null &&
+      extracted.durationSeconds > this.maximumDurationSeconds
+    ) {
+      throw new ApplicationError(
+        "LIMIT_EXCEEDED",
+        413,
+        `Media duration exceeds the ${this.maximumDurationSeconds}-second limit.`,
+      );
+    }
+
+    return Object.freeze({
+      extracted,
+      platform: validatedUrl.platform,
+      url: validatedUrl.url,
     });
   }
 }

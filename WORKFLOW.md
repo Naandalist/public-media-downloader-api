@@ -247,17 +247,17 @@ Verification gate:
 
 ## Step 12 — Implement the download endpoint
 
-- [ ] Validate request JSON.
-- [ ] Inspect media before committing response headers.
-- [ ] Create job directory and reserve capacity.
-- [ ] Download selected stream or streams.
-- [ ] Merge separate streams when required.
-- [ ] Determine final MIME type and safe extension from actual output.
-- [ ] Generate a sanitized attachment filename.
-- [ ] Stream with backpressure.
-- [ ] Set `Content-Length` when known.
-- [ ] Detect client disconnect and abort work.
-- [ ] Clean the job directory after stream completion or failure.
+- [x] Validate request JSON.
+- [x] Inspect media before committing response headers.
+- [x] Create job directory and reserve capacity.
+- [x] Download selected stream or streams.
+- [x] Merge separate streams when required.
+- [x] Determine final MIME type and safe extension from actual output.
+- [x] Generate a sanitized attachment filename.
+- [x] Stream with backpressure.
+- [x] Set `Content-Length` when known.
+- [x] Detect client disconnect and abort work.
+- [x] Clean the job directory after stream completion or failure.
 
 Request:
 
@@ -272,10 +272,10 @@ Request:
 
 Verification gate:
 
-- [ ] Successful response downloads one playable attachment.
-- [ ] Filename contains no control characters or unsafe path data.
-- [ ] Truncated or failed generation never returns a fake successful JSON response.
-- [ ] Client abort kills active work and removes temporary files.
+- [x] Successful response downloads one playable attachment.
+- [x] Filename contains no control characters or unsafe path data.
+- [x] Truncated or failed generation never returns a fake successful JSON response.
+- [x] Client abort kills active work and removes temporary files.
 
 ## Step 13 — Implement optional metadata sanitization
 

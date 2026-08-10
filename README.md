@@ -2,9 +2,9 @@
 
 Planned Bun + Hono backend and web interface for downloading publicly accessible media from YouTube, X/Twitter, Facebook, TikTok, and Instagram.
 
-> Status: early implementation. Workflow Steps 1–8 are complete, including authenticated media
-> inspection. Downloading and post-processing are not implemented yet. See [PLAN.md](./PLAN.md) for
-> the implementation contract and [WORKFLOW.md](./WORKFLOW.md) for progress.
+> Status: workflow Steps 1–12 are complete. Authenticated inspection and direct media downloads are
+> implemented. Optional metadata sanitization begins in Step 13. See [PLAN.md](./PLAN.md) for the
+> implementation contract and [WORKFLOW.md](./WORKFLOW.md) for progress.
 
 ## Planned capabilities
 
@@ -40,7 +40,7 @@ client request
 
 Cloudinary or permanent object storage is not required for this direct-response design. Temporary local disk is still necessary because many services publish video and audio separately, and sanitized output must be completed and validated before delivery. Private object storage may be added later for async jobs, retries, shared multi-instance delivery, or caching.
 
-## Planned REST API
+## REST API
 
 Base path: `/api/v1`
 
@@ -96,6 +96,9 @@ Options:
 | `stripMetadata` | `false`       | `true`, `false`                           |
 
 `quality` is ignored for audio-only downloads. Audio keeps its best original source codec/container; MP3 conversion is not part of the initial scope.
+
+`stripMetadata: true` is reserved for Step 13 and currently returns `400 INVALID_REQUEST`; it is
+never silently ignored.
 
 Mode and quality values map to internal format selections; raw `yt-dlp` expressions are never
 accepted. Fixed quality chooses the exact height or closest lower stream without upscaling. If none
@@ -170,13 +173,15 @@ Configuration is validated once during startup. The server refuses to start when
 is missing or invalid. `API_KEYS` accepts a comma-separated list of keys; every key must contain at
 least 32 characters. See [.env.example](./.env.example) for defaults and supported variables.
 
-Current foundation endpoints:
+Current endpoints:
 
-| Endpoint      | Purpose                                        |
-| ------------- | ---------------------------------------------- |
-| `GET /health` | Process liveness; returns `{ "status": "ok" }` |
-| `GET /ready`  | Temporary-directory and media-tool readiness   |
-| `GET /api/v1` | Versioned API identity                         |
+| Endpoint                | Purpose                                        |
+| ----------------------- | ---------------------------------------------- |
+| `GET /health`           | Process liveness; returns `{ "status": "ok" }` |
+| `GET /ready`            | Temporary-directory and media-tool readiness   |
+| `GET /api/v1`           | Versioned API identity                         |
+| `POST /api/v1/info`     | Normalized public-media inspection             |
+| `POST /api/v1/download` | Validated attachment download                  |
 
 `/ready` returns `503` until `yt-dlp`, `ffmpeg`, and `ffprobe` are installed and the configured
 temporary directory is writable. Useful commands:
@@ -196,6 +201,12 @@ SERVICE_BUSY` with `Retry-After`. `JOB_TIMEOUT_SECONDS` aborts the job signal an
 tree. Extractor-reported sizes allow early rejection, while every downloaded byte remains subject
 to `MAX_OUTPUT_BYTES`, so missing or inaccurate remote metadata cannot bypass the limit. Capacity
 and byte limits are per process; multi-instance deployment requires shared admission control.
+
+The download endpoint completes extraction, stream selection, merging/remuxing, basic `ffprobe`
+validation, MIME detection, and size verification before sending successful response headers. It
+then streams the file with backpressure and retains both the capacity lease and temporary job until
+the body completes or is cancelled. Client disconnect, timeout, preparation failure, and stream
+cancellation trigger cleanup.
 
 ```bash
 bun run dev       # Start with file watching

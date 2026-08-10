@@ -55,6 +55,18 @@ export class OutputByteLimiter {
     this.observedBytes += bytes;
   }
 
+  observeBytesWritten(totalBytes: number): void {
+    if (!Number.isSafeInteger(totalBytes) || totalBytes < 0) {
+      throw new TypeError("Observed byte count must be a non-negative safe integer");
+    }
+
+    this.observedBytes = Math.max(this.observedBytes, totalBytes);
+
+    if (this.observedBytes > this.maximumBytes) {
+      this.fail();
+    }
+  }
+
   createTransformStream(): TransformStream<Uint8Array, Uint8Array> {
     return new TransformStream({
       transform: (chunk, controller) => {
