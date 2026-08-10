@@ -3,9 +3,10 @@ export type ApplicationErrorCode =
   | "INVALID_REQUEST"
   | "LIMIT_EXCEEDED"
   | "MEDIA_UNAVAILABLE"
+  | "QUALITY_UNAVAILABLE"
   | "UNSUPPORTED_URL";
 
-export type ApplicationErrorStatus = 400 | 404 | 413 | 502;
+export type ApplicationErrorStatus = 400 | 404 | 413 | 422 | 502;
 
 export class ApplicationError extends Error {
   override readonly name = "ApplicationError";

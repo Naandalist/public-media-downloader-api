@@ -9,6 +9,8 @@
     {
       "format_id": "audio-opus",
       "acodec": "opus",
+      "abr": 128,
+      "ext": "webm",
       "vcodec": "none",
       "url": "https://signed-media.example/audio?token=do-not-leak"
     },
@@ -17,6 +19,7 @@
       "acodec": "none",
       "vcodec": "vp9",
       "height": 720,
+      "ext": "webm",
       "url": "https://signed-media.example/video?token=do-not-leak"
     },
     {
@@ -24,6 +27,7 @@
       "acodec": "none",
       "vcodec": "h264",
       "height": 360,
+      "ext": "mp4",
       "url": "https://signed-media.example/video-360?token=do-not-leak"
     },
     {
@@ -31,6 +35,7 @@
       "acodec": "none",
       "vcodec": "h264",
       "height": 144,
+      "ext": "mp4",
       "url": "https://signed-media.example/video-144?token=do-not-leak"
     }
   ],

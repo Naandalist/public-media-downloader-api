@@ -97,6 +97,10 @@ Options:
 
 `quality` is ignored for audio-only downloads. Audio keeps its best original source codec/container; MP3 conversion is not part of the initial scope.
 
+Mode and quality values map to internal format selections; raw `yt-dlp` expressions are never
+accepted. Fixed quality chooses the exact height or closest lower stream without upscaling. If none
+exists, the API returns `422 QUALITY_UNAVAILABLE`.
+
 On success, the download endpoint returns a media attachment. It does not return a permanent public URL.
 
 ### Authentication

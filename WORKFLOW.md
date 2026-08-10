@@ -191,9 +191,9 @@ Verification gate:
 
 ## Step 10 — Implement format selection
 
-- [ ] Define typed enums for mode and quality.
-- [ ] Generate internal `yt-dlp` format selectors from those enums.
-- [ ] Never accept raw format expressions from API clients.
+- [x] Define typed enums for mode and quality.
+- [x] Generate internal `yt-dlp` format selectors from those enums.
+- [x] Never accept raw format expressions from API clients.
 
 Mode rules:
 
@@ -214,18 +214,18 @@ audio_only
   -> best original source audio; no forced conversion
 ```
 
-- [ ] For fixed quality, select exact height when available.
-- [ ] Otherwise select the closest lower height.
-- [ ] Return `QUALITY_UNAVAILABLE` when no suitable lower stream exists.
-- [ ] Never upscale.
-- [ ] Preserve actual audio extension and MIME type.
+- [x] For fixed quality, select exact height when available.
+- [x] Otherwise select the closest lower height.
+- [x] Return `QUALITY_UNAVAILABLE` when no suitable lower stream exists.
+- [x] Never upscale.
+- [x] Preserve actual audio extension and MIME type.
 
 Verification gate:
 
-- [ ] Unit tests cover every mode/quality combination.
-- [ ] Tests cover exact match, lower fallback, and unavailable quality.
-- [ ] Video-only output contains no audio stream.
-- [ ] Audio-only output contains no video stream.
+- [x] Unit tests cover every mode/quality combination.
+- [x] Tests cover exact match, lower fallback, and unavailable quality.
+- [x] Video-only output contains no audio stream.
+- [x] Audio-only output contains no video stream.
 
 ## Step 11 — Enforce capacity, size, and time limits
 

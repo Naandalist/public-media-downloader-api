@@ -5,6 +5,21 @@ import { MediaInfoService } from "../src/services/media-info";
 import { MediaUrlValidator } from "../src/services/media-url-validator";
 import type { ExtractedMediaInfo, MediaExtractor } from "../src/services/yt-dlp";
 
+const format = (
+  values: Partial<ExtractedMediaInfo["formats"][number]>,
+): ExtractedMediaInfo["formats"][number] => ({
+  audioBitrate: null,
+  audioCodec: null,
+  extension: null,
+  formatId: "test-format",
+  hasAudio: false,
+  hasVideo: false,
+  height: null,
+  totalBitrate: null,
+  videoBitrate: null,
+  ...values,
+});
+
 const createValidator = () =>
   new MediaUrlValidator({
     addressResolver: async () => [{ address: "8.8.8.8", family: 4 }],
@@ -14,11 +29,11 @@ const createValidator = () =>
 const extractedVideo: ExtractedMediaInfo = {
   durationSeconds: 125.5,
   formats: [
-    { hasAudio: true, hasVideo: false, height: null },
-    { hasAudio: false, hasVideo: true, height: 1_080 },
-    { hasAudio: false, hasVideo: true, height: 720 },
-    { hasAudio: false, hasVideo: true, height: 360 },
-    { hasAudio: false, hasVideo: true, height: 144 },
+    format({ formatId: "audio", hasAudio: true }),
+    format({ formatId: "video-1080", hasVideo: true, height: 1_080 }),
+    format({ formatId: "video-720", hasVideo: true, height: 720 }),
+    format({ formatId: "video-360", hasVideo: true, height: 360 }),
+    format({ formatId: "video-144", hasVideo: true, height: 144 }),
   ],
   isPlaylist: false,
   thumbnail: "https://images.example/owned-video.jpg",
@@ -66,7 +81,7 @@ describe("MediaInfoService", () => {
       createValidator(),
       extractorReturning({
         durationSeconds: null,
-        formats: [{ hasAudio: true, hasVideo: false, height: null }],
+        formats: [format({ hasAudio: true })],
         isPlaylist: false,
         title: "Owned audio",
       }),
@@ -86,7 +101,7 @@ describe("MediaInfoService", () => {
       createValidator(),
       extractorReturning({
         durationSeconds: 30,
-        formats: [{ hasAudio: false, hasVideo: true, height: 480 }],
+        formats: [format({ hasVideo: true, height: 480 })],
         isPlaylist: false,
         title: "Silent owned video",
       }),
@@ -118,7 +133,7 @@ describe("MediaInfoService", () => {
       createValidator(),
       extractorReturning({
         ...extractedVideo,
-        formats: [{ hasAudio: false, hasVideo: false, height: null }],
+        formats: [format({})],
       }),
       1_800,
     );

@@ -5,8 +5,17 @@ import type { ProcessExecutor } from "./process-runner";
 import { ProcessRunnerError } from "./process-runner";
 
 const extractorFormatSchema = z.object({
+  abr: z.number().finite().nonnegative().nullable().optional(),
   acodec: z.string().nullable().optional(),
+  ext: z
+    .string()
+    .regex(/^[a-zA-Z0-9]{1,10}$/)
+    .nullable()
+    .optional(),
+  format_id: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/),
   height: z.number().finite().positive().nullable().optional(),
+  tbr: z.number().finite().nonnegative().nullable().optional(),
+  vbr: z.number().finite().nonnegative().nullable().optional(),
   vcodec: z.string().nullable().optional(),
 });
 
@@ -26,9 +35,15 @@ const playlistMarkerSchema = z.object({
 });
 
 export interface ExtractedFormat {
+  readonly audioBitrate: number | null;
+  readonly audioCodec: string | null;
+  readonly extension: string | null;
+  readonly formatId: string;
   readonly hasAudio: boolean;
   readonly hasVideo: boolean;
   readonly height: number | null;
+  readonly totalBitrate: number | null;
+  readonly videoBitrate: number | null;
 }
 
 export interface ExtractedMediaInfo {
@@ -124,9 +139,18 @@ export class YtDlpAdapter implements MediaExtractor {
     }
 
     const formats = parsed.data.formats.map((format) => ({
+      audioBitrate: format.abr ?? null,
+      audioCodec:
+        format.acodec === undefined || format.acodec === null || format.acodec === "none"
+          ? null
+          : format.acodec,
+      extension: format.ext?.toLowerCase() ?? null,
+      formatId: format.format_id,
       hasAudio: format.acodec !== undefined && format.acodec !== null && format.acodec !== "none",
       hasVideo: format.vcodec !== undefined && format.vcodec !== null && format.vcodec !== "none",
       height: format.height ?? null,
+      totalBitrate: format.tbr ?? null,
+      videoBitrate: format.vbr ?? null,
     }));
 
     return Object.freeze({
