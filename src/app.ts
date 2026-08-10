@@ -23,7 +23,7 @@ export const createApp = ({ apiKeyAuthenticator, readiness }: AppDependencies) =
   app.notFound(notFoundHandler);
 
   app.route("/", createHealthRoutes(readiness));
-  app.route("/api/v1", createApiRoutes(apiKeyAuthenticator));
+  app.route("/api/v1", createApiRoutes(apiKeyAuthenticator, readiness));
 
   return app;
 };

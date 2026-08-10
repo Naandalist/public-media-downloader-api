@@ -1,12 +1,17 @@
 import { createApp } from "./app";
 import { loadConfig } from "./config";
 import { ApiKeyAuthenticator } from "./services/api-key-authenticator";
-import { SystemReadinessChecker } from "./services/readiness";
+import { createStartupDependencyDiagnostic, SystemReadinessChecker } from "./services/readiness";
 
 const config = loadConfig();
+const readiness = new SystemReadinessChecker(config.tempDir);
+const startupReadiness = await readiness.check();
+
+console.log(JSON.stringify(createStartupDependencyDiagnostic(startupReadiness)));
+
 const app = createApp({
   apiKeyAuthenticator: new ApiKeyAuthenticator(config.apiKeys),
-  readiness: new SystemReadinessChecker(config.tempDir),
+  readiness,
 });
 
 const server = Bun.serve({

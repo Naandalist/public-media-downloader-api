@@ -23,6 +23,29 @@ export interface ReadinessChecker {
   check(): Promise<ReadinessResult>;
 }
 
+export interface StartupDependencyDiagnostic {
+  readonly event: "startup_dependencies";
+  readonly ffmpeg: "available" | "unavailable";
+  readonly ffprobe: "available" | "unavailable";
+  readonly status: ReadinessResult["status"];
+  readonly tempDirectory: "available" | "unavailable";
+  readonly ytDlp: "available" | "unavailable";
+}
+
+const availability = (available: boolean) => (available ? "available" : "unavailable");
+
+export const createStartupDependencyDiagnostic = (
+  result: ReadinessResult,
+): StartupDependencyDiagnostic =>
+  Object.freeze({
+    event: "startup_dependencies",
+    ffmpeg: availability(result.checks.ffmpeg),
+    ffprobe: availability(result.checks.ffprobe),
+    status: result.status,
+    tempDirectory: availability(result.checks.tempDirectory),
+    ytDlp: availability(result.checks.ytDlp),
+  });
+
 export type CommandChecker = (
   executable: string,
   arguments_: readonly string[],

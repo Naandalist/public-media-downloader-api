@@ -86,6 +86,37 @@ describe("application", () => {
     expect(responseText).not.toContain(testApiKey);
   });
 
+  test("rejects media traffic while dependencies are unavailable", async () => {
+    const result: ReadinessResult = {
+      checks: { ...readyResult.checks, ffmpeg: false },
+      status: "not_ready",
+    };
+    const response = await createTestApp(result).request("/api/v1/info", {
+      headers: { "X-API-Key": testApiKey },
+      method: "POST",
+    });
+    const body = (await response.json()) as {
+      error: { code: string; message: string; requestId: string };
+    };
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("30");
+    expect(body.error.code).toBe("SERVICE_NOT_READY");
+    expect(response.headers.get("X-Request-Id")).toBe(body.error.requestId);
+  });
+
+  test("checks authentication before media readiness", async () => {
+    const result: ReadinessResult = {
+      checks: { ...readyResult.checks, ffmpeg: false },
+      status: "not_ready",
+    };
+    const response = await createTestApp(result).request("/api/v1/download", {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(401);
+  });
+
   test("returns normalized not-found errors", async () => {
     const response = await createTestApp().request("/missing");
     const requestId = response.headers.get("X-Request-Id");

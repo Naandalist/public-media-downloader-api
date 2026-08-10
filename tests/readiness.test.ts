@@ -3,7 +3,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { SystemReadinessChecker, type CommandChecker } from "../src/services/readiness";
+import {
+  createStartupDependencyDiagnostic,
+  SystemReadinessChecker,
+  type CommandChecker,
+} from "../src/services/readiness";
 
 const tempDirectories: string[] = [];
 
@@ -58,5 +62,30 @@ describe("SystemReadinessChecker", () => {
     expect(result.checks.tempDirectory).toBe(false);
     expect(result.status).toBe("not_ready");
     expect(JSON.stringify(result)).not.toContain("/dev/null/downloader");
+  });
+});
+
+describe("createStartupDependencyDiagnostic", () => {
+  test("returns safe availability labels without executable versions or paths", () => {
+    const diagnostic = createStartupDependencyDiagnostic({
+      checks: {
+        ffmpeg: true,
+        ffprobe: true,
+        tempDirectory: true,
+        ytDlp: false,
+      },
+      status: "not_ready",
+    });
+
+    expect(diagnostic).toEqual({
+      event: "startup_dependencies",
+      ffmpeg: "available",
+      ffprobe: "available",
+      status: "not_ready",
+      tempDirectory: "available",
+      ytDlp: "unavailable",
+    });
+    expect(JSON.stringify(diagnostic)).not.toContain("/tmp");
+    expect(JSON.stringify(diagnostic)).not.toMatch(/\d+\.\d+\.\d+/);
   });
 });

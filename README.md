@@ -159,6 +159,10 @@ Current foundation endpoints:
 `/ready` returns `503` until `yt-dlp`, `ffmpeg`, and `ffprobe` are installed and the configured
 temporary directory is writable. Useful commands:
 
+Startup emits one safe JSON dependency diagnostic containing only availability labels. Media routes
+return `503 SERVICE_NOT_READY` with `Retry-After` while any required tool or temporary storage is
+unavailable; `/health` remains available for liveness monitoring.
+
 ```bash
 bun run dev       # Start with file watching
 bun run start     # Start without file watching

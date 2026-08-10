@@ -134,17 +134,17 @@ Verification gate:
 
 ## Step 7 — Check required media tools
 
-- [ ] Verify `yt-dlp --version` during readiness checks.
-- [ ] Verify `ffmpeg -version` during readiness checks.
-- [ ] Verify `ffprobe -version` during readiness checks.
-- [ ] Do not accept download traffic when a required executable is unavailable.
-- [ ] Log safe dependency diagnostics during startup.
+- [x] Verify `yt-dlp --version` during readiness checks.
+- [x] Verify `ffmpeg -version` during readiness checks.
+- [x] Verify `ffprobe -version` during readiness checks.
+- [x] Do not accept download traffic when a required executable is unavailable.
+- [x] Log safe dependency diagnostics during startup.
 
 Verification gate:
 
-- [ ] `/ready` returns `200` when all dependencies work.
-- [ ] `/ready` returns `503` when any dependency is unavailable.
-- [ ] `/health` remains `200` while the process itself is alive.
+- [x] `/ready` returns `200` when all dependencies work.
+- [x] `/ready` returns `503` when any dependency is unavailable.
+- [x] `/health` remains `200` while the process itself is alive.
 
 ## Step 8 — Implement media inspection
 
