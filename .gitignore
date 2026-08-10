@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Build and test output
+dist/
+coverage/
+*.log
+
+# Temporary media and local scratch space
+.tmp/
+tmp/
+downloads/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
