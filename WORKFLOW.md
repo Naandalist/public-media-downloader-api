@@ -31,11 +31,11 @@ Expected result: Hono starts without type errors and returns a basic response.
 
 ## Step 2 — Add typed configuration
 
-- [ ] Create `src/config.ts`.
-- [ ] Read configuration only once during startup.
-- [ ] Validate required environment variables before accepting traffic.
-- [ ] Add `.env.example` with safe placeholder values.
-- [ ] Keep real API keys and secrets out of source control.
+- [x] Create `src/config.ts`.
+- [x] Read configuration only once during startup.
+- [x] Validate required environment variables before accepting traffic.
+- [x] Add `.env.example` with safe placeholder values.
+- [x] Keep real API keys and secrets out of source control.
 
 Initial configuration:
 
@@ -54,9 +54,9 @@ LOG_LEVEL=info
 
 Verification gate:
 
-- [ ] Application fails fast with a clear message when required configuration is missing.
-- [ ] Application starts with valid configuration.
-- [ ] Logs never print API-key values.
+- [x] Application fails fast with a clear message when required configuration is missing.
+- [x] Application starts with valid configuration.
+- [x] Logs never print API-key values.
 
 ## Step 3 — Establish the Hono application boundary
 

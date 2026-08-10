@@ -124,8 +124,14 @@ Requirements: Bun 1.3 or newer.
 
 ```bash
 bun install
+cp .env.example .env
+# Replace API_KEYS in .env with: openssl rand -hex 32
 bun run dev
 ```
+
+Configuration is validated once during startup. The server refuses to start when a required value
+is missing or invalid. `API_KEYS` accepts a comma-separated list of keys; every key must contain at
+least 32 characters. See [.env.example](./.env.example) for defaults and supported variables.
 
 The current foundation exposes a temporary service-identity response at `GET /`. Useful commands:
 
