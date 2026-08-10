@@ -2,8 +2,8 @@
 
 Planned Bun + Hono backend and web interface for downloading publicly accessible media from YouTube, X/Twitter, Facebook, TikTok, and Instagram.
 
-> Status: workflow Steps 1–12 are complete. Authenticated inspection and direct media downloads are
-> implemented. Optional metadata sanitization begins in Step 13. See [PLAN.md](./PLAN.md) for the
+> Status: workflow Steps 1–13 are complete. Authenticated inspection, direct media downloads, and
+> optional validated metadata sanitization are implemented. See [PLAN.md](./PLAN.md) for the
 > implementation contract and [WORKFLOW.md](./WORKFLOW.md) for progress.
 
 ## Planned capabilities
@@ -97,9 +97,6 @@ Options:
 
 `quality` is ignored for audio-only downloads. Audio keeps its best original source codec/container; MP3 conversion is not part of the initial scope.
 
-`stripMetadata: true` is reserved for Step 13 and currently returns `400 INVALID_REQUEST`; it is
-never silently ignored.
-
 Mode and quality values map to internal format selections; raw `yt-dlp` expressions are never
 accepted. Fixed quality chooses the exact height or closest lower stream without upscaling. If none
 exists, the API returns `422 QUALITY_UNAVAILABLE`.
@@ -114,7 +111,15 @@ exposing configured credentials. Multiple comma-separated keys support rotation 
 
 ## Metadata removal
 
-The optional sanitizer removes nonessential container metadata, tags, comments, chapters, embedded artwork, and image metadata where supported. It preserves media streams and container data required for playback.
+The optional sanitizer removes nonessential container and stream tags, comments, chapters,
+subtitles, data streams, and attached artwork. Audio/video containers are remuxed with codec stream
+copy. JPEG and PNG images are decoded and re-encoded so orientation is baked into pixels before
+orientation metadata is deleted.
+
+Sanitization is selected from the container reported by `ffprobe`, never from a URL suffix. Output
+is written separately, re-probed, and rejected unless expected streams, duration, orientation, and
+metadata checks pass. Unsupported containers fail safely. Unsanitized intermediates are deleted
+before response streaming; `stripMetadata: false` bypasses this work.
 
 It does **not** modify file magic bytes, spoof formats, remove visible watermarks, defeat media fingerprinting, or guarantee anonymity. Unsupported sanitization must fail rather than return a corrupt file.
 

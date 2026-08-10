@@ -1,4 +1,4 @@
-import { lstat, readdir } from "node:fs/promises";
+import { lstat, readdir, rm } from "node:fs/promises";
 import { extname } from "node:path";
 
 import { z } from "zod";
@@ -20,22 +20,69 @@ import { TempJobStorage } from "./temp-job-storage";
 const monitorIntervalMilliseconds = 25;
 const sourcePrefix = "source.";
 const processedPrefix = "processed.";
+const sanitizedPrefix = "sanitized.";
 
 const probeSchema = z.object({
+  chapters: z.array(z.unknown()).optional().default([]),
   format: z.object({
+    duration: z.union([z.string(), z.number()]).nullable().optional(),
     format_name: z.string().min(1),
+    tags: z.record(z.string(), z.string()).optional().default({}),
   }),
   streams: z.array(
     z.object({
+      codec_name: z.string().nullable().optional(),
       codec_type: z.enum(["audio", "video"]),
+      disposition: z
+        .object({
+          attached_pic: z.number().int().optional().default(0),
+        })
+        .passthrough()
+        .optional()
+        .default({ attached_pic: 0 }),
+      height: z.number().int().positive().nullable().optional(),
+      side_data_list: z
+        .array(
+          z
+            .object({
+              rotation: z.number().finite().nullable().optional(),
+            })
+            .passthrough(),
+        )
+        .optional()
+        .default([]),
+      tags: z.record(z.string(), z.string()).optional().default({}),
+      width: z.number().int().positive().nullable().optional(),
     }),
   ),
 });
 
 interface DetectedMediaFile {
   readonly extension: string;
+  readonly isImage: boolean;
   readonly mimeType: string;
 }
+
+type MediaProbe = z.infer<typeof probeSchema>;
+
+const removableMetadataKeys = new Set([
+  "album",
+  "album_artist",
+  "artist",
+  "comment",
+  "copyright",
+  "creation_time",
+  "date",
+  "description",
+  "encoded_by",
+  "location",
+  "make",
+  "model",
+  "orientation",
+  "rotate",
+  "synopsis",
+  "title",
+]);
 
 const downloadFailed = () =>
   new ApplicationError("DOWNLOAD_FAILED", 502, "The media download failed.");
@@ -58,13 +105,23 @@ const processFailure = (error: unknown, signal: AbortSignal): ApplicationError =
 const detectMediaFile = (
   formatName: string,
   mode: MediaDownloadRequest["mode"],
+  videoCodec?: string | null,
 ): DetectedMediaFile => {
   const formats = new Set(formatName.split(","));
   const audioOnly = mode === "audio_only";
 
+  if (formats.has("image2") && videoCodec === "mjpeg") {
+    return { extension: "jpg", isImage: true, mimeType: "image/jpeg" };
+  }
+
+  if (formats.has("image2") && videoCodec === "png") {
+    return { extension: "png", isImage: true, mimeType: "image/png" };
+  }
+
   if (formats.has("webm")) {
     return {
       extension: "webm",
+      isImage: false,
       mimeType: audioOnly ? "audio/webm" : "video/webm",
     };
   }
@@ -72,6 +129,7 @@ const detectMediaFile = (
   if (formats.has("matroska")) {
     return {
       extension: audioOnly ? "mka" : "mkv",
+      isImage: false,
       mimeType: audioOnly ? "audio/x-matroska" : "video/x-matroska",
     };
   }
@@ -79,32 +137,37 @@ const detectMediaFile = (
   if (formats.has("mov") || formats.has("mp4") || formats.has("m4a")) {
     return {
       extension: audioOnly ? "m4a" : "mp4",
+      isImage: false,
       mimeType: audioOnly ? "audio/mp4" : "video/mp4",
     };
   }
 
   if (formats.has("mp3")) {
-    return { extension: "mp3", mimeType: "audio/mpeg" };
+    return { extension: "mp3", isImage: false, mimeType: "audio/mpeg" };
   }
 
   if (formats.has("ogg")) {
-    return { extension: "ogg", mimeType: audioOnly ? "audio/ogg" : "video/ogg" };
+    return {
+      extension: "ogg",
+      isImage: false,
+      mimeType: audioOnly ? "audio/ogg" : "video/ogg",
+    };
   }
 
   if (formats.has("flac")) {
-    return { extension: "flac", mimeType: "audio/flac" };
+    return { extension: "flac", isImage: false, mimeType: "audio/flac" };
   }
 
   if (formats.has("wav")) {
-    return { extension: "wav", mimeType: "audio/wav" };
+    return { extension: "wav", isImage: false, mimeType: "audio/wav" };
   }
 
   if (formats.has("aac")) {
-    return { extension: "aac", mimeType: "audio/aac" };
+    return { extension: "aac", isImage: false, mimeType: "audio/aac" };
   }
 
   if (formats.has("mpegts")) {
-    return { extension: "ts", mimeType: "video/mp2t" };
+    return { extension: "ts", isImage: false, mimeType: "video/mp2t" };
   }
 
   throw processingFailed();
@@ -122,6 +185,103 @@ const validateStreams = (
     (mode === "audio_only" && hasAudio && !hasVideo);
 
   if (!valid) {
+    throw processingFailed();
+  }
+};
+
+const visualStream = (probe: MediaProbe) =>
+  probe.streams.find(
+    (stream) => stream.codec_type === "video" && stream.disposition.attached_pic !== 1,
+  );
+
+const detectFromProbe = (
+  probe: MediaProbe,
+  mode: MediaDownloadRequest["mode"],
+): DetectedMediaFile =>
+  detectMediaFile(probe.format.format_name, mode, visualStream(probe)?.codec_name);
+
+const durationSeconds = (probe: MediaProbe): number | null => {
+  const value = Number(probe.format.duration);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+};
+
+const imageRotation = (probe: MediaProbe): number | null => {
+  const stream = visualStream(probe);
+  const sideDataRotation = stream?.side_data_list.find(
+    (sideData) => sideData.rotation !== undefined && sideData.rotation !== null,
+  )?.rotation;
+  const rotateTag = Number(stream?.tags.rotate);
+  const orientationTag = Number(stream?.tags.orientation);
+  const exifOrientationDegrees: Readonly<Record<number, number>> = {
+    3: 180,
+    5: 90,
+    6: 90,
+    7: -90,
+    8: -90,
+  };
+
+  if (sideDataRotation !== undefined && sideDataRotation !== null) {
+    return sideDataRotation;
+  }
+
+  if (Number.isFinite(rotateTag)) {
+    return rotateTag;
+  }
+
+  return Number.isInteger(orientationTag) ? (exifOrientationDegrees[orientationTag] ?? 0) : null;
+};
+
+const assertSanitizedMetadata = (probe: MediaProbe) => {
+  const metadataKeys = [
+    ...Object.keys(probe.format.tags),
+    ...probe.streams.flatMap((stream) => Object.keys(stream.tags)),
+  ].map((key) => key.toLowerCase());
+  const hasAttachedArtwork = probe.streams.some((stream) => stream.disposition.attached_pic === 1);
+
+  if (
+    probe.chapters.length > 0 ||
+    hasAttachedArtwork ||
+    metadataKeys.some((key) => removableMetadataKeys.has(key))
+  ) {
+    throw processingFailed();
+  }
+};
+
+const assertDurationPreserved = (source: MediaProbe, sanitized: MediaProbe) => {
+  const sourceDuration = durationSeconds(source);
+  const sanitizedDuration = durationSeconds(sanitized);
+
+  if (sourceDuration === null || sanitizedDuration === null) {
+    return;
+  }
+
+  const toleranceSeconds = Math.max(1, sourceDuration * 0.02);
+
+  if (Math.abs(sourceDuration - sanitizedDuration) > toleranceSeconds) {
+    throw processingFailed();
+  }
+};
+
+const assertImageOrientationNormalized = (source: MediaProbe, sanitized: MediaProbe) => {
+  const sourceStream = visualStream(source);
+  const sanitizedStream = visualStream(sanitized);
+  const sourceRotation = imageRotation(source);
+  const sanitizedRotation = imageRotation(sanitized);
+
+  if (sanitizedRotation !== null && sanitizedRotation % 360 !== 0) {
+    throw processingFailed();
+  }
+
+  if (
+    sourceRotation !== null &&
+    Math.abs(sourceRotation) % 180 === 90 &&
+    sourceStream?.width !== undefined &&
+    sourceStream.width !== null &&
+    sourceStream.height !== undefined &&
+    sourceStream.height !== null &&
+    (sanitizedStream?.width !== sourceStream.height ||
+      sanitizedStream.height !== sourceStream.width)
+  ) {
     throw processingFailed();
   }
 };
@@ -147,10 +307,14 @@ const logicalBytesWritten = async (job: TempJob): Promise<number> => {
   const entries = await readdir(job.directory, { withFileTypes: true });
   let completedSourceBytes = 0;
   let intermediateSourceBytes = 0;
-  let processedBytes = 0;
+  let derivedOutputBytes = 0;
 
   for (const entry of entries) {
-    if (!entry.name.startsWith(sourcePrefix) && !entry.name.startsWith(processedPrefix)) {
+    if (
+      !entry.name.startsWith(sourcePrefix) &&
+      !entry.name.startsWith(processedPrefix) &&
+      !entry.name.startsWith(sanitizedPrefix)
+    ) {
       continue;
     }
 
@@ -161,8 +325,8 @@ const logicalBytesWritten = async (job: TempJob): Promise<number> => {
       throw downloadFailed();
     }
 
-    if (entry.name.startsWith(processedPrefix)) {
-      processedBytes += status.size;
+    if (!entry.name.startsWith(sourcePrefix)) {
+      derivedOutputBytes = Math.max(derivedOutputBytes, status.size);
       continue;
     }
 
@@ -177,7 +341,7 @@ const logicalBytesWritten = async (job: TempJob): Promise<number> => {
     }
   }
 
-  return Math.max(completedSourceBytes, intermediateSourceBytes, processedBytes);
+  return Math.max(completedSourceBytes, intermediateSourceBytes, derivedOutputBytes);
 };
 
 const runMonitored = async (
@@ -250,14 +414,6 @@ export class MediaDownloadService implements MediaDownloader {
     request: MediaDownloadRequest,
     context: JobContext,
   ): Promise<PreparedMediaDownload> {
-    if (request.stripMetadata) {
-      throw new ApplicationError(
-        "INVALID_REQUEST",
-        400,
-        "Metadata sanitization is not available yet.",
-      );
-    }
-
     const source = await this.sourceInspector.inspectSource(request.url, context.signal);
     const selection = this.formatSelector.select(
       source.extracted.formats,
@@ -296,6 +452,7 @@ export class MediaDownloadService implements MediaDownloader {
       );
 
       let filePath = await findCompletedSource(job);
+      const unsanitizedPaths = new Set([filePath]);
 
       if (selection.requiresAudioRemoval || selection.requiresVideoRemoval) {
         const processedPath = await processedFilePath(job, filePath);
@@ -326,9 +483,26 @@ export class MediaDownloadService implements MediaDownloader {
           context,
         );
         filePath = processedPath;
+        unsanitizedPaths.add(filePath);
       }
 
-      const detected = await this.probe(filePath, request.mode, context.signal);
+      let detected: DetectedMediaFile;
+
+      if (request.stripMetadata) {
+        const sanitized = await this.sanitize(filePath, job, request.mode, context);
+        filePath = sanitized.filePath;
+        detected = sanitized.detected;
+        await Promise.all(
+          [...unsanitizedPaths]
+            .filter((unsanitizedPath) => unsanitizedPath !== filePath)
+            .map((unsanitizedPath) => rm(unsanitizedPath, { force: true })),
+        );
+      } else {
+        const probe = await this.probe(filePath, context.signal);
+        validateStreams(probe.streams, request.mode);
+        detected = detectFromProbe(probe, request.mode);
+      }
+
       const status = await lstat(filePath);
 
       if (!status.isFile() || status.size < 1) {
@@ -351,11 +525,7 @@ export class MediaDownloadService implements MediaDownloader {
     }
   }
 
-  private async probe(
-    filePath: string,
-    mode: MediaDownloadRequest["mode"],
-    signal: AbortSignal,
-  ): Promise<DetectedMediaFile> {
+  private async probe(filePath: string, signal: AbortSignal): Promise<MediaProbe> {
     let result: Awaited<ReturnType<ProcessExecutor["run"]>>;
 
     try {
@@ -363,8 +533,9 @@ export class MediaDownloadService implements MediaDownloader {
         arguments: [
           "-v",
           "error",
-          "-show_entries",
-          "format=format_name:stream=codec_type",
+          "-show_format",
+          "-show_streams",
+          "-show_chapters",
           "-of",
           "json",
           filePath,
@@ -393,8 +564,85 @@ export class MediaDownloadService implements MediaDownloader {
       throw processingFailed();
     }
 
-    validateStreams(parsed.data.streams, mode);
-    return detectMediaFile(parsed.data.format.format_name, mode);
+    return parsed.data;
+  }
+
+  private async sanitize(
+    sourcePath: string,
+    job: TempJob,
+    mode: MediaDownloadRequest["mode"],
+    context: JobContext,
+  ): Promise<{ readonly detected: DetectedMediaFile; readonly filePath: string }> {
+    const sourceProbe = await this.probe(sourcePath, context.signal);
+    const sourceDetected = detectFromProbe(sourceProbe, mode);
+    const sanitizedPath = await job.resolveFile(`sanitized.${sourceDetected.extension}`);
+    const mapping =
+      mode === "video_audio"
+        ? ["-map", "0:V:0", "-map", "0:a:0"]
+        : ["-map", mode === "video_only" ? "0:V:0" : "0:a:0"];
+    const codecArguments = sourceDetected.isImage
+      ? [
+          "-frames:v",
+          "1",
+          "-update",
+          "1",
+          "-c:v",
+          sourceDetected.extension === "jpg" ? "mjpeg" : "png",
+        ]
+      : ["-c", "copy"];
+
+    await this.runProcess(
+      {
+        arguments: [
+          "-nostdin",
+          "-v",
+          "error",
+          "-y",
+          ...(sourceDetected.isImage ? ["-autorotate"] : []),
+          "-i",
+          sourcePath,
+          ...mapping,
+          "-map_metadata",
+          "-1",
+          "-map_metadata:s",
+          "-1",
+          "-map_chapters",
+          "-1",
+          "-dn",
+          "-sn",
+          ...codecArguments,
+          sanitizedPath,
+        ],
+        cwd: job.directory,
+        executable: this.ffmpegExecutable,
+        maxStderrBytes: 262_144,
+        maxStdoutBytes: 65_536,
+        signal: context.signal,
+        timeoutMilliseconds: this.processTimeoutMilliseconds,
+      },
+      job,
+      context,
+    );
+
+    const sanitizedProbe = await this.probe(sanitizedPath, context.signal);
+    validateStreams(sanitizedProbe.streams, mode);
+    assertSanitizedMetadata(sanitizedProbe);
+    assertDurationPreserved(sourceProbe, sanitizedProbe);
+
+    if (sourceDetected.isImage) {
+      assertImageOrientationNormalized(sourceProbe, sanitizedProbe);
+    }
+
+    const detected = detectFromProbe(sanitizedProbe, mode);
+
+    if (
+      detected.extension !== sourceDetected.extension ||
+      detected.isImage !== sourceDetected.isImage
+    ) {
+      throw processingFailed();
+    }
+
+    return Object.freeze({ detected, filePath: sanitizedPath });
   }
 
   private async runProcess(

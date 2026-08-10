@@ -279,23 +279,23 @@ Verification gate:
 
 ## Step 13 — Implement optional metadata sanitization
 
-- [ ] Inspect downloaded output with `ffprobe`.
-- [ ] Choose sanitization behavior by actual container, not URL suffix.
-- [ ] Write sanitized output to a separate file.
-- [ ] Remove global/stream metadata, comments, chapters, and attached artwork where safe.
-- [ ] Prefer codec stream copy.
-- [ ] For images, normalize orientation into pixels before deleting orientation metadata.
-- [ ] Validate the sanitized output using `ffprobe`.
-- [ ] Confirm at least the expected audio/video streams remain.
-- [ ] Delete the unsanitized intermediate before response streaming.
-- [ ] Fail safely for unsupported containers.
+- [x] Inspect downloaded output with `ffprobe`.
+- [x] Choose sanitization behavior by actual container, not URL suffix.
+- [x] Write sanitized output to a separate file.
+- [x] Remove global/stream metadata, comments, chapters, and attached artwork where safe.
+- [x] Prefer codec stream copy.
+- [x] For images, normalize orientation into pixels before deleting orientation metadata.
+- [x] Validate the sanitized output using `ffprobe`.
+- [x] Confirm at least the expected audio/video streams remain.
+- [x] Delete the unsanitized intermediate before response streaming.
+- [x] Fail safely for unsupported containers.
 
 Verification gate:
 
-- [ ] `stripMetadata: false` bypasses sanitization.
-- [ ] `stripMetadata: true` removes tested optional tags.
-- [ ] Duration and expected streams remain valid.
-- [ ] Corrupt sanitizer output is never returned.
+- [x] `stripMetadata: false` bypasses sanitization.
+- [x] `stripMetadata: true` removes tested optional tags.
+- [x] Duration and expected streams remain valid.
+- [x] Corrupt sanitizer output is never returned.
 
 ## Step 14 — Normalize errors
 

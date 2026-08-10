@@ -67,7 +67,9 @@ class StubProcessExecutor implements ProcessExecutor {
   hangDownload = false;
   outputBytes = new TextEncoder().encode("playable-fixture");
   probeFormat = "webm";
+  probeResults: unknown[] = [];
   probeStreams: readonly ("audio" | "video")[] = ["video", "audio"];
+  sanitizedOutputBytes: Uint8Array | null = null;
 
   async run(options: ProcessRunOptions): Promise<ProcessRunResult> {
     this.calls.push(options);
@@ -100,21 +102,29 @@ class StubProcessExecutor implements ProcessExecutor {
         throw new Error("Missing ffmpeg fixture paths");
       }
 
-      await Bun.write(output, Bun.file(input));
+      await Bun.write(
+        output,
+        arguments_.includes("-map_metadata") && this.sanitizedOutputBytes !== null
+          ? this.sanitizedOutputBytes
+          : Bun.file(input),
+      );
     }
 
     return {
       durationMilliseconds: 1,
       exitCode: 0,
       stderr: "",
-      stdout:
-        options.executable === "/tools/ffprobe"
-          ? JSON.stringify({
-              format: { format_name: this.probeFormat },
-              streams: this.probeStreams.map((codec_type) => ({ codec_type })),
-            })
-          : "",
+      stdout: options.executable === "/tools/ffprobe" ? JSON.stringify(this.nextProbe()) : "",
     };
+  }
+
+  private nextProbe(): unknown {
+    return (
+      this.probeResults.shift() ?? {
+        format: { format_name: this.probeFormat },
+        streams: this.probeStreams.map((codec_type) => ({ codec_type })),
+      }
+    );
   }
 }
 
@@ -153,6 +163,7 @@ describe("MediaDownloadService", () => {
 
     expect(downloadCall?.arguments).toContain("video+audio");
     expect(downloadCall?.arguments).toContain("1024");
+    expect(fixture.executor.calls.some((call) => call.executable === "/tools/ffmpeg")).toBe(false);
     expect(prepared).toMatchObject({
       extension: "webm",
       mimeType: "video/webm",
@@ -284,7 +295,7 @@ describe("MediaDownloadService", () => {
     lease.release();
   });
 
-  test("rejects unexpected streams and unsupported metadata sanitization", async () => {
+  test("rejects unexpected streams", async () => {
     const fixture = await setup([format({ formatId: "video", hasVideo: true, height: 720 })]);
     fixture.executor.probeStreams = ["audio"];
 
@@ -292,10 +303,193 @@ describe("MediaDownloadService", () => {
       fixture.service.prepare(request({ mode: "video_only" }), fixture.lease.context),
     ).rejects.toMatchObject({ code: "DOWNLOAD_FAILED" });
     expect(await readdir(fixture.root)).toEqual([]);
+    fixture.lease.release();
+  });
+
+  test("removes optional metadata, chapters, and attached artwork with stream copy", async () => {
+    const fixture = await setup([
+      format({ audioCodec: "opus", formatId: "audio", hasAudio: true }),
+      format({ formatId: "video", hasVideo: true, height: 720 }),
+    ]);
+    fixture.executor.probeResults = [
+      {
+        chapters: [{ id: 1 }],
+        format: {
+          duration: "30.0",
+          format_name: "webm",
+          tags: { COMMENT: "remove", title: "remove" },
+        },
+        streams: [
+          { codec_name: "vp9", codec_type: "video", tags: { description: "remove" } },
+          { codec_name: "opus", codec_type: "audio", tags: { artist: "remove" } },
+          {
+            codec_name: "mjpeg",
+            codec_type: "video",
+            disposition: { attached_pic: 1 },
+          },
+        ],
+      },
+      {
+        chapters: [],
+        format: { duration: "30.0", format_name: "webm", tags: { encoder: "ffmpeg" } },
+        streams: [
+          { codec_name: "vp9", codec_type: "video", tags: {} },
+          { codec_name: "opus", codec_type: "audio", tags: {} },
+        ],
+      },
+    ];
+
+    const prepared = await fixture.service.prepare(
+      request({ stripMetadata: true }),
+      fixture.lease.context,
+    );
+    const sanitizerCall = fixture.executor.calls.find(
+      (call) => call.executable === "/tools/ffmpeg" && call.arguments?.includes("-map_metadata"),
+    );
+
+    expect(sanitizerCall?.arguments).toEqual(
+      expect.arrayContaining([
+        "0:V:0",
+        "0:a:0",
+        "-map_metadata",
+        "-map_metadata:s",
+        "-map_chapters",
+        "-dn",
+        "-sn",
+        "copy",
+      ]),
+    );
+    expect(prepared.filePath).toContain("sanitized.webm");
+    expect(await readdir(fixture.root)).toHaveLength(1);
+
+    await prepared.cleanup();
+    fixture.lease.release();
+  });
+
+  test("normalizes image orientation into pixels before deleting metadata", async () => {
+    const fixture = await setup([
+      format({ extension: "jpg", formatId: "image", hasVideo: true, height: 800 }),
+    ]);
+    fixture.executor.probeResults = [
+      {
+        format: { format_name: "image2", tags: { make: "camera" } },
+        streams: [
+          {
+            codec_name: "mjpeg",
+            codec_type: "video",
+            height: 800,
+            side_data_list: [{ rotation: 90 }],
+            tags: { orientation: "6" },
+            width: 1200,
+          },
+        ],
+      },
+      {
+        format: { format_name: "image2", tags: {} },
+        streams: [{ codec_name: "mjpeg", codec_type: "video", height: 1200, tags: {}, width: 800 }],
+      },
+    ];
+
+    const prepared = await fixture.service.prepare(
+      request({ mode: "video_only", stripMetadata: true }),
+      fixture.lease.context,
+    );
+    const sanitizerCall = fixture.executor.calls.find(
+      (call) => call.executable === "/tools/ffmpeg",
+    );
+
+    expect(sanitizerCall?.arguments).toEqual(
+      expect.arrayContaining(["-autorotate", "-frames:v", "1", "-c:v", "mjpeg"]),
+    );
+    expect(prepared).toMatchObject({ extension: "jpg", mimeType: "image/jpeg" });
+
+    await prepared.cleanup();
+    fixture.lease.release();
+  });
+
+  test("never returns corrupt or incompletely sanitized output", async () => {
+    const fixture = await setup([
+      format({ audioCodec: "opus", formatId: "audio", hasAudio: true }),
+      format({ formatId: "video", hasVideo: true, height: 720 }),
+    ]);
+    fixture.executor.probeResults = [
+      {
+        format: { duration: "30", format_name: "webm", tags: { comment: "remove" } },
+        streams: [{ codec_type: "video" }, { codec_type: "audio" }],
+      },
+      {
+        format: { duration: "3", format_name: "webm", tags: { comment: "still present" } },
+        streams: [{ codec_type: "video" }],
+      },
+    ];
 
     await expect(
       fixture.service.prepare(request({ stripMetadata: true }), fixture.lease.context),
-    ).rejects.toMatchObject({ code: "INVALID_REQUEST", status: 400 });
+    ).rejects.toMatchObject({ code: "DOWNLOAD_FAILED" });
+    expect(await readdir(fixture.root)).toEqual([]);
+    fixture.lease.release();
+  });
+
+  test("rejects sanitized output with material duration drift", async () => {
+    const fixture = await setup([
+      format({ audioCodec: "opus", formatId: "audio", hasAudio: true }),
+      format({ formatId: "video", hasVideo: true, height: 720 }),
+    ]);
+    fixture.executor.probeResults = [
+      {
+        format: { duration: "30", format_name: "webm", tags: {} },
+        streams: [{ codec_type: "video" }, { codec_type: "audio" }],
+      },
+      {
+        format: { duration: "3", format_name: "webm", tags: {} },
+        streams: [{ codec_type: "video" }, { codec_type: "audio" }],
+      },
+    ];
+
+    await expect(
+      fixture.service.prepare(request({ stripMetadata: true }), fixture.lease.context),
+    ).rejects.toMatchObject({ code: "DOWNLOAD_FAILED" });
+    expect(await readdir(fixture.root)).toEqual([]);
+    fixture.lease.release();
+  });
+
+  test("fails safely when the probed container is unsupported", async () => {
+    const fixture = await setup([format({ formatId: "video", hasVideo: true, height: 720 })]);
+    fixture.executor.probeResults = [
+      {
+        format: { format_name: "unknown_container", tags: {} },
+        streams: [{ codec_name: "h264", codec_type: "video" }],
+      },
+    ];
+
+    await expect(
+      fixture.service.prepare(
+        request({ mode: "video_only", stripMetadata: true }),
+        fixture.lease.context,
+      ),
+    ).rejects.toMatchObject({ code: "DOWNLOAD_FAILED" });
+    expect(await readdir(fixture.root)).toEqual([]);
+    fixture.lease.release();
+  });
+
+  test("stops sanitization when the separate output exceeds the byte limit", async () => {
+    const fixture = await setup([format({ formatId: "video", hasVideo: true, height: 720 })], 10);
+    fixture.executor.outputBytes = new Uint8Array(8);
+    fixture.executor.sanitizedOutputBytes = new Uint8Array(11);
+    fixture.executor.probeResults = [
+      {
+        format: { format_name: "webm", tags: {} },
+        streams: [{ codec_name: "vp9", codec_type: "video" }],
+      },
+    ];
+
+    await expect(
+      fixture.service.prepare(
+        request({ mode: "video_only", stripMetadata: true }),
+        fixture.lease.context,
+      ),
+    ).rejects.toMatchObject({ code: "LIMIT_EXCEEDED" });
+    expect(await readdir(fixture.root)).toEqual([]);
     fixture.lease.release();
   });
 });
