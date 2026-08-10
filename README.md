@@ -111,6 +111,11 @@ Playlists and private/login-required media are excluded from the MVP.
 
 The local API will initially use `X-API-Key`. VPS deployment must add TLS, per-key/IP rate limiting, strict supported-domain validation, private-network blocking, bounded subprocess execution, and container resource limits.
 
+Accepted input URLs must use HTTPS and belong to an explicit YouTube, X/Twitter, Facebook, TikTok,
+or Instagram hostname. Validation rejects credentials, custom ports, deceptive lookalike domains,
+playlists, DNS results containing private/special-use addresses, unsafe redirect destinations,
+redirect loops, and excessive redirects.
+
 A permanent API key must not be embedded in a published Android APK because app secrets can be extracted. Android production should use user/device authentication and short-lived backend-issued tokens. Google Play Integrity can be an additional abuse signal.
 
 ## Android and public-release note

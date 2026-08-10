@@ -97,22 +97,22 @@ Expected result: both requests fail with normalized `401` responses.
 
 ## Step 5 — Validate URLs and block SSRF
 
-- [ ] Accept only absolute `https` URLs.
-- [ ] Reject URLs containing usernames, passwords, or nonstandard ports.
-- [ ] Add an explicit allowlist for supported public platform hosts.
-- [ ] Include required official short-link hosts such as `youtu.be` and `vm.tiktok.com`.
-- [ ] Normalize hostnames before comparison.
-- [ ] Reject loopback, private, link-local, multicast, and cloud metadata IP ranges.
-- [ ] Validate redirect destinations.
-- [ ] Reject unsupported domains before launching `yt-dlp`.
-- [ ] Reject playlists for MVP.
+- [x] Accept only absolute `https` URLs.
+- [x] Reject URLs containing usernames, passwords, or nonstandard ports.
+- [x] Add an explicit allowlist for supported public platform hosts.
+- [x] Include required official short-link hosts such as `youtu.be` and `vm.tiktok.com`.
+- [x] Normalize hostnames before comparison.
+- [x] Reject loopback, private, link-local, multicast, and cloud metadata IP ranges.
+- [x] Validate redirect destinations.
+- [x] Reject unsupported domains before launching `yt-dlp`.
+- [x] Reject playlists for MVP.
 
 Verification gate:
 
-- [ ] Supported public URLs pass.
-- [ ] `http://` URLs fail.
-- [ ] Localhost, private IP, encoded IP, credential-bearing, and malicious redirect cases fail.
-- [ ] Similar-looking attacker domains fail.
+- [x] Supported public URLs pass.
+- [x] `http://` URLs fail.
+- [x] Localhost, private IP, encoded IP, credential-bearing, and malicious redirect cases fail.
+- [x] Similar-looking attacker domains fail.
 
 ## Step 6 — Build a safe subprocess runner
 
